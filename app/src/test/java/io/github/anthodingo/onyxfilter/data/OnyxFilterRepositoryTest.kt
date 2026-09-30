@@ -8,7 +8,6 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -46,105 +45,86 @@ class OnyxFilterRepositoryTest {
         ioDispatcher = Dispatchers.Unconfined,
     )
 
+    private fun session(token: String = "onyx_stored") = Session(serverUrl = baseUrl, apiToken = token)
+
     @Test
     fun `restores stored session, or logs out when there is none`() = runTest {
         val empty = repository()
         empty.restoreSession()
         assertEquals(AuthState.LoggedOut(), empty.authState.value)
 
-        store.save(session(accessToken = "stored"))
+        store.save(session("onyx_stored"))
         val restored = repository()
         assertEquals(AuthState.Restoring, restored.authState.value)
         restored.restoreSession()
-        assertEquals("stored", (restored.authState.value as AuthState.LoggedIn).session.accessToken)
+        assertEquals("onyx_stored", (restored.authState.value as AuthState.LoggedIn).session.apiToken)
     }
 
     @Test
-    fun `login stores the session`() = runTest {
+    fun `login checks the token, stores the session and publishes the state`() = runTest {
         val repository = repository()
         repository.restoreSession()
-        server.enqueue(tokens("access-1", "refresh-1"))
+        server.enqueue(json("""{"enabled":true,"disabledUntil":null,"remainingSeconds":null}"""))
 
-        repository.login(baseUrl, "admin", "secret")
+        repository.login(baseUrl, "onyx_new")
 
-        val stored = requireNotNull(store.load())
-        assertEquals("access-1", stored.accessToken)
-        assertEquals("refresh-1", stored.refreshToken)
-        // Expiration anticipée d'une minute.
-        assertEquals(clock.millis() + 3_540_000, stored.accessTokenExpiresAtMillis)
+        assertEquals("Bearer onyx_new", server.takeRequest().getHeader("Authorization"))
+        assertEquals(Session(baseUrl, "onyx_new"), store.load())
         assertTrue(repository.authState.value is AuthState.LoggedIn)
+        assertEquals(true, repository.protectionStatus.value?.enabled)
     }
 
     @Test
-    fun `logout clears tokens but keeps the login hint`() = runTest {
+    fun `rejected token at login keeps the user logged out`() = runTest {
+        val repository = repository()
+        repository.restoreSession()
+        server.enqueue(error401())
+
+        try {
+            repository.login(baseUrl, "onyx_wrong")
+            fail("Unauthorized attendue")
+        } catch (e: OnyxFilterException.Unauthorized) {
+            // attendu
+        }
+
+        assertEquals(AuthState.LoggedOut(), repository.authState.value)
+        assertNull(store.load())
+    }
+
+    @Test
+    fun `logout clears the token but keeps the server address`() = runTest {
         store.save(session())
         val repository = repository()
         repository.restoreSession()
 
         repository.logout()
 
-        assertEquals(AuthState.LoggedOut(sessionExpired = false), repository.authState.value)
+        assertEquals(AuthState.LoggedOut(tokenRejected = false), repository.authState.value)
         assertNull(store.load())
-        assertEquals(LoginHint(baseUrl, "admin"), repository.loginHint())
+        assertEquals(LoginHint(baseUrl), repository.loginHint())
     }
 
     @Test
-    fun `expired access token is refreshed before the call`() = runTest {
-        store.save(session(accessToken = "old", expiresAt = clock.millis() - 1))
+    fun `token revoked during the session ends it`() = runTest {
+        store.save(session())
         val repository = repository()
         repository.restoreSession()
-        server.enqueue(tokens("new", "refresh-2"))
-        server.enqueue(protection("""{"enabled":true}"""))
-
-        val status = repository.getProtection()
-
-        assertTrue(status.enabled)
-        assertEquals("/api/auth/refresh", server.takeRequest().path)
-        assertEquals("Bearer new", server.takeRequest().getHeader("Authorization"))
-        assertEquals("refresh-2", store.load()!!.refreshToken)
-    }
-
-    @Test
-    fun `rejected access token is refreshed and the call replayed`() = runTest {
-        store.save(session(accessToken = "revoked"))
-        val repository = repository()
-        repository.restoreSession()
-        server.enqueue(MockResponse().setResponseCode(401))
-        server.enqueue(tokens("new", "refresh-2"))
-        server.enqueue(protection("""{"enabled":false,"disabledUntilUtc":null,"remainingSeconds":null}"""))
-
-        val status = repository.disableProtection(DisableDuration.Indefinitely)
-
-        assertTrue(status.isDisabledIndefinitely)
-        assertEquals("Bearer revoked", server.takeRequest().getHeader("Authorization"))
-        assertEquals("/api/auth/refresh", server.takeRequest().path)
-        val replay = server.takeRequest()
-        assertEquals("PUT", replay.method)
-        assertEquals("Bearer new", replay.getHeader("Authorization"))
-    }
-
-    @Test
-    fun `rejected refresh token ends the session`() = runTest {
-        store.save(session(accessToken = "revoked"))
-        val repository = repository()
-        repository.restoreSession()
-        server.enqueue(MockResponse().setResponseCode(401))
-        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(error401())
 
         try {
             repository.getProtection()
-            fail("SessionExpired attendue")
-        } catch (e: OnyxFilterException.SessionExpired) {
+            fail("SessionEnded attendue")
+        } catch (e: OnyxFilterException.SessionEnded) {
             // attendu
         }
 
-        assertEquals(AuthState.LoggedOut(sessionExpired = true), repository.authState.value)
+        assertEquals(AuthState.LoggedOut(tokenRejected = true), repository.authState.value)
         assertNull(store.load())
     }
 
     @Test
-    fun `network failure during refresh keeps the session`() = runTest {
-        store.save(session(accessToken = "old", expiresAt = clock.millis() - 1))
+    fun `network failure keeps the session`() = runTest {
+        store.save(session())
         val repository = repository()
         repository.restoreSession()
         server.shutdown()
@@ -166,14 +146,13 @@ class OnyxFilterRepositoryTest {
         val repository = repository()
         repository.restoreSession()
         // Horloge du serveur en avance d'une heure sur celle du téléphone : seule la durée restante compte.
-        server.enqueue(protection("""{"enabled":false,"disabledUntilUtc":"2026-09-30T11:10:00Z","remainingSeconds":600}"""))
+        server.enqueue(json("""{"enabled":false,"disabledUntil":"2026-09-30T11:10:00+00:00","remainingSeconds":600}"""))
 
         val status = repository.disableProtection(DisableDuration.Fixed(600))
 
         assertTrue(status.isDisabledTemporarily)
         assertEquals(Instant.parse("2026-09-30T10:10:00Z"), status.disabledUntil)
-        assertEquals(600, status.remainingSeconds(clock.instant()))
-        assertFalse(status.enabled)
+        assertEquals(status, repository.protectionStatus.value)
     }
 
     @Test
@@ -184,7 +163,7 @@ class OnyxFilterRepositoryTest {
         store.save(session())
         val repository = repository()
         repository.restoreSession()
-        server.enqueue(protection("""{"enabled":false,"remainingSeconds":1800}"""))
+        server.enqueue(json("""{"enabled":false,"remainingSeconds":1800}"""))
 
         repository.disableProtection(DisableDuration.UntilTomorrow)
 
@@ -193,35 +172,33 @@ class OnyxFilterRepositoryTest {
     }
 
     @Test
-    fun `last protection status is published and cleared on logout`() = runTest {
+    fun `stats are published and cleared on logout`() = runTest {
         store.save(session())
         val repository = repository()
         repository.restoreSession()
-        assertNull(repository.protectionStatus.value)
-        server.enqueue(protection("""{"enabled":false,"remainingSeconds":60}"""))
+        server.enqueue(json(OnyxFilterApiTest.STATS))
 
-        val status = repository.disableProtection(DisableDuration.Fixed(60))
+        val stats = repository.getStats()
 
-        assertEquals(status, repository.protectionStatus.value)
+        assertEquals(1234L, stats.totalQueries)
+        assertEquals("ads.example", stats.topBlockedDomain?.name)
+        assertEquals(listOf(10L, 20L), stats.hourlyQueries)
+        assertEquals(Instant.parse("2026-09-30T13:00:00Z"), stats.lastHourStart)
+        assertEquals(stats, repository.stats.value)
+
         repository.logout()
+        assertNull(repository.stats.value)
         assertNull(repository.protectionStatus.value)
     }
 
-    private fun session(accessToken: String = "access", expiresAt: Long = clock.millis() + 3_600_000) = Session(
-        serverUrl = baseUrl,
-        username = "admin",
-        accessToken = accessToken,
-        refreshToken = "refresh",
-        accessTokenExpiresAtMillis = expiresAt,
-    )
-
-    private fun tokens(access: String, refresh: String) = MockResponse()
-        .setHeader("Content-Type", "application/json")
-        .setBody("""{"tokenType":"Bearer","accessToken":"$access","expiresIn":3600,"refreshToken":"$refresh"}""")
-
-    private fun protection(body: String) = MockResponse()
+    private fun json(body: String) = MockResponse()
         .setHeader("Content-Type", "application/json")
         .setBody(body)
+
+    private fun error401() = MockResponse()
+        .setResponseCode(401)
+        .setHeader("Content-Type", "application/json")
+        .setBody("""{"error":"unauthorized","message":"Jeton d'API manquant, invalide ou révoqué."}""")
 }
 
 private class InMemorySessionStore : SessionStore {
@@ -232,7 +209,7 @@ private class InMemorySessionStore : SessionStore {
 
     override fun save(session: Session) {
         this.session = session
-        hint = LoginHint(session.serverUrl, session.username)
+        hint = LoginHint(session.serverUrl)
     }
 
     override fun clear() {

@@ -105,7 +105,7 @@ internal object WidgetController {
                     is WidgetCommand.Disable -> repository.disableProtection(command.duration)
                 }
             }
-        } catch (e: OnyxFilterException.SessionExpired) {
+        } catch (e: OnyxFilterException.SessionEnded) {
             show(application, WidgetModel())
             return
         } catch (e: OnyxFilterException) {

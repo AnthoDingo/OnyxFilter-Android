@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -90,7 +86,7 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
     ProtectionContent(
         state = state,
         now = rememberNow(ticking = state.status?.isDisabledTemporarily == true),
-        serverLabel = stringResource(R.string.protection_server_label, ServerUrl.displayName(session.serverUrl), session.username),
+        serverLabel = ServerUrl.displayName(session.serverUrl),
         snackbarHostState = snackbarHostState,
         onRefresh = viewModel::refresh,
         onEnable = viewModel::enable,
@@ -155,16 +151,16 @@ private fun ProtectionContent(
                 },
                 actions = {
                     IconButton(onClick = onRefresh, enabled = !state.isRefreshing) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
+                        Icon(painterResource(R.drawable.ic_refresh), contentDescription = stringResource(R.string.action_refresh))
                     }
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more))
+                            Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_logout)) },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null) },
+                                leadingIcon = { Icon(painterResource(R.drawable.ic_logout), contentDescription = null) },
                                 onClick = {
                                     menuExpanded = false
                                     onLogout()
@@ -429,7 +425,7 @@ private fun ProtectionEnabledPreview() {
         ProtectionContent(
             state = ProtectionUiState(status = ProtectionStatus(enabled = true, disabledUntil = null), isRefreshing = false),
             now = Instant.now(),
-            serverLabel = "onyxfilter.maison · admin",
+            serverLabel = "onyxfilter.maison:7037",
             snackbarHostState = remember { SnackbarHostState() },
             onRefresh = {},
             onEnable = {},
@@ -452,7 +448,7 @@ private fun ProtectionDisabledPreview() {
                 error = UiText.Resource(R.string.error_timeout),
             ),
             now = now,
-            serverLabel = "onyxfilter.maison · admin",
+            serverLabel = "onyxfilter.maison:7037",
             snackbarHostState = remember { SnackbarHostState() },
             onRefresh = {},
             onEnable = {},

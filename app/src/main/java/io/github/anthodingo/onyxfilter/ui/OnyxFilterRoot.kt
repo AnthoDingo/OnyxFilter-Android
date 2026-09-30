@@ -31,14 +31,14 @@ fun OnyxFilterRoot(repository: OnyxFilterRepository) {
 
             is AuthState.LoggedOut -> LoginScreen(
                 viewModel = viewModel(factory = LoginViewModel.Factory),
-                sessionExpired = state.sessionExpired,
+                tokenRejected = state.tokenRejected,
             )
 
             is AuthState.LoggedIn -> ProtectionScreen(
                 session = state.session,
-                // Un ViewModel par instance et par compte : rien n'est repris d'une connexion à l'autre.
+                // Un ViewModel par instance : rien n'est repris d'un serveur à l'autre.
                 viewModel = viewModel(
-                    key = "protection:${state.session.serverUrl}:${state.session.username}",
+                    key = "protection:${state.session.serverUrl}",
                     factory = ProtectionViewModel.Factory,
                 ),
             )

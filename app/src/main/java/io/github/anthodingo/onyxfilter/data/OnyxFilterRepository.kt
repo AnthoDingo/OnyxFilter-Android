@@ -1,6 +1,7 @@
 package io.github.anthodingo.onyxfilter.data
 
 import io.github.anthodingo.onyxfilter.domain.DisableDuration
+import io.github.anthodingo.onyxfilter.domain.DnsStats
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -18,14 +19,15 @@ sealed interface AuthState {
     /** Lecture de la session enregistrée en cours (démarrage de l'application). */
     data object Restoring : AuthState
 
-    data class LoggedOut(val sessionExpired: Boolean = false) : AuthState
+    /** @property tokenRejected la session a pris fin parce que le serveur a refusé le jeton (révoqué ?). */
+    data class LoggedOut(val tokenRejected: Boolean = false) : AuthState
 
     data class LoggedIn(val session: Session) : AuthState
 }
 
 /**
- * Point d'entrée unique de l'interface vers l'instance OnyxFilter : connexion, conservation de la
- * session et rafraîchissement transparent du jeton d'accès.
+ * Point d'entrée unique de l'interface, des widgets et de la tuile vers l'instance OnyxFilter :
+ * connexion, conservation de la session et derniers états lus.
  */
 class OnyxFilterRepository(
     private val api: OnyxFilterApi,
@@ -45,11 +47,13 @@ class OnyxFilterRepository(
      */
     val protectionStatus: StateFlow<ProtectionStatus?> = _protectionStatus.asStateFlow()
 
-    // Évite plusieurs rafraîchissements simultanés du même jeton (appel réseau).
-    private val refreshMutex = Mutex()
+    private val _stats = MutableStateFlow<DnsStats?>(null)
 
-    // Garde la cohérence entre la session enregistrée et [authState] (connexion, rafraîchissement et
-    // déconnexion concurrents). Jamais tenu pendant un appel réseau.
+    /** Dernières statistiques obtenues pendant cette session, comme [protectionStatus]. */
+    val stats: StateFlow<DnsStats?> = _stats.asStateFlow()
+
+    // Garde la cohérence entre la session enregistrée et [authState] (connexion et déconnexion
+    // concurrentes). Jamais tenu pendant un appel réseau.
     private val sessionMutex = Mutex()
 
     private val currentSession: Session?
@@ -68,100 +72,82 @@ class OnyxFilterRepository(
     suspend fun loginHint(): LoginHint? = withContext(ioDispatcher) { sessionStore.loginHint() }
 
     /**
+     * Vérifie le jeton (lecture de l'état de la protection) puis ouvre la session.
+     *
      * @param serverUrl adresse déjà normalisée par [ServerUrl.normalize].
      * @throws OnyxFilterException
      */
-    suspend fun login(serverUrl: String, username: String, password: String): Session {
-        val tokens = api.login(serverUrl, username, password)
-        val session = Session.create(serverUrl, username, tokens, clock.millis())
+    suspend fun login(serverUrl: String, apiToken: String): Session {
+        val dto = api.getProtection(serverUrl, apiToken)
+        val session = Session(serverUrl, apiToken)
         sessionMutex.withLock {
             withContext(ioDispatcher) { sessionStore.save(session) }
-            _protectionStatus.value = null
+            _stats.value = null
+            _protectionStatus.value = ProtectionStatus.fromDto(dto, clock.instant())
             _authState.value = AuthState.LoggedIn(session)
         }
         return session
     }
 
     suspend fun logout() {
-        endSession(sessionExpired = false)
+        endSession(tokenRejected = false)
     }
 
     /** @throws OnyxFilterException */
     suspend fun getProtection(): ProtectionStatus =
-        authenticated { session -> api.getProtection(session.serverUrl, session.accessToken) }
+        protectionCall { session -> api.getProtection(session.serverUrl, session.apiToken) }
 
     /** @throws OnyxFilterException */
     suspend fun enableProtection(): ProtectionStatus =
-        authenticated { session -> api.setProtection(session.serverUrl, session.accessToken, enabled = true, durationSeconds = null) }
+        protectionCall { session -> api.enableProtection(session.serverUrl, session.apiToken) }
 
     /** @throws OnyxFilterException */
     suspend fun disableProtection(duration: DisableDuration): ProtectionStatus {
         val seconds = duration.toSeconds(ZonedDateTime.now(clock))
-        return authenticated { session ->
-            api.setProtection(session.serverUrl, session.accessToken, enabled = false, durationSeconds = seconds)
-        }
+        return protectionCall { session -> api.disableProtection(session.serverUrl, session.apiToken, seconds) }
     }
 
-    // Exécute un appel authentifié : le jeton d'accès est rafraîchi avant l'appel s'il a expiré, ou
-    // après un refus du serveur (jeton révoqué, serveur redémarré avec de nouvelles clés...), puis
-    // l'appel est rejoué une fois. Si le rafraîchissement échoue lui aussi, la session est fermée.
-    private suspend fun authenticated(call: suspend (Session) -> ProtectionStateDto): ProtectionStatus {
-        var session = currentSession ?: throw OnyxFilterException.SessionExpired()
-        if (session.isAccessTokenExpired(clock.millis())) {
-            session = refreshTokens(session)
-        }
+    /** @throws OnyxFilterException */
+    suspend fun getStats(): DnsStats {
+        val (session, dto) = authenticated { session -> api.getStats(session.serverUrl, session.apiToken) }
+        val stats = DnsStats.fromDto(dto)
+        publishIfCurrent(session) { _stats.value = stats }
+        return stats
+    }
 
-        val dto = try {
-            call(session)
-        } catch (e: OnyxFilterException.Unauthorized) {
-            val refreshed = refreshTokens(session)
-            try {
-                call(refreshed)
-            } catch (retryFailure: OnyxFilterException.Unauthorized) {
-                // Jeton tout juste renouvelé et pourtant refusé : inutile d'insister.
-                endSession(sessionExpired = true, onlyIfCurrent = refreshed)
-                throw OnyxFilterException.SessionExpired()
-            }
-        }
+    private suspend fun protectionCall(call: suspend (Session) -> ProtectionStateDto): ProtectionStatus {
+        val (session, dto) = authenticated(call)
         val status = ProtectionStatus.fromDto(dto, clock.instant())
-        // Réponse arrivée après une déconnexion (ou une autre connexion) : elle ne vaut plus rien.
-        if (currentSession?.serverUrl == session.serverUrl) {
-            _protectionStatus.value = status
-        }
+        publishIfCurrent(session) { _protectionStatus.value = status }
         return status
     }
 
-    private suspend fun refreshTokens(stale: Session): Session = refreshMutex.withLock {
-        val current = currentSession ?: throw OnyxFilterException.SessionExpired()
-
-        // Un autre appel a déjà rafraîchi les jetons pendant l'attente du verrou.
-        if (current.accessToken != stale.accessToken) return current
-
-        val tokens = try {
-            api.refresh(current.serverUrl, current.refreshToken)
-        } catch (e: OnyxFilterException.SessionExpired) {
-            endSession(sessionExpired = true, onlyIfCurrent = current)
-            throw e
+    // Jeton refusé (révoqué depuis la page « Accès API ») : la session est fermée et l'application
+    // revient à l'écran de connexion.
+    private suspend fun <T> authenticated(call: suspend (Session) -> T): Pair<Session, T> {
+        val session = currentSession ?: throw OnyxFilterException.SessionEnded()
+        return try {
+            session to call(session)
+        } catch (e: OnyxFilterException.Unauthorized) {
+            endSession(tokenRejected = true, onlyIfCurrent = session)
+            throw OnyxFilterException.SessionEnded()
         }
+    }
 
-        val refreshed = current.withTokens(tokens, clock.millis())
-        sessionMutex.withLock {
-            // Déconnexion pendant le rafraîchissement : la session ne doit pas être rouverte.
-            if (currentSession != current) throw OnyxFilterException.SessionExpired()
-            withContext(ioDispatcher) { sessionStore.save(refreshed) }
-            _authState.value = AuthState.LoggedIn(refreshed)
-        }
-        refreshed
+    // Réponse arrivée après une déconnexion (ou une autre connexion) : elle ne vaut plus rien.
+    private inline fun publishIfCurrent(session: Session, publish: () -> Unit) {
+        if (currentSession == session) publish()
     }
 
     // onlyIfCurrent : ne ferme la session que si elle n'a pas changé entre-temps (déconnexion ou
     // nouvelle connexion de l'utilisateur pendant un appel réseau).
-    private suspend fun endSession(sessionExpired: Boolean, onlyIfCurrent: Session? = null) {
+    private suspend fun endSession(tokenRejected: Boolean, onlyIfCurrent: Session? = null) {
         sessionMutex.withLock {
             if (onlyIfCurrent != null && currentSession != onlyIfCurrent) return
             withContext(ioDispatcher) { sessionStore.clear() }
             _protectionStatus.value = null
-            _authState.value = AuthState.LoggedOut(sessionExpired)
+            _stats.value = null
+            _authState.value = AuthState.LoggedOut(tokenRejected)
         }
     }
 }

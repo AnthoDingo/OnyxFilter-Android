@@ -5,16 +5,13 @@ import java.io.IOException
 /** Erreurs d'accès à l'instance OnyxFilter, traduites en message par l'interface. */
 sealed class OnyxFilterException(message: String?, cause: Throwable? = null) : Exception(message, cause) {
 
-    /** Nom d'utilisateur ou mot de passe refusé (ou compte verrouillé) par le serveur. */
-    class InvalidCredentials(val serverMessage: String?) : OnyxFilterException(serverMessage)
+    /** Jeton d'API manquant, invalide ou révoqué (HTTP 401). */
+    class Unauthorized(val serverMessage: String?) : OnyxFilterException(serverMessage ?: "Jeton refusé")
 
-    /** Jeton d'accès refusé (HTTP 401) : il faut le rafraîchir. */
-    class Unauthorized : OnyxFilterException("Jeton d'accès refusé")
+    /** Pas (ou plus) de session : jeton refusé par le serveur, ou déconnexion. */
+    class SessionEnded : OnyxFilterException("Session terminée")
 
-    /** Jeton de rafraîchissement refusé : l'utilisateur doit se reconnecter. */
-    class SessionExpired : OnyxFilterException("Session expirée")
-
-    /** Aucun point d'accès /api sur ce serveur : adresse erronée ou instance pas à jour. */
+    /** Aucun point d'accès /api/v1 sur ce serveur : adresse erronée ou instance pas à jour. */
     class ApiNotAvailable(val code: Int) : OnyxFilterException("API introuvable (HTTP $code)")
 
     /** Réponse HTTP inattendue. */

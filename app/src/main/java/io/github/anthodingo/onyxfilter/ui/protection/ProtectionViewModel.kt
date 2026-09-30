@@ -90,7 +90,7 @@ class ProtectionViewModel(
             _uiState.update { it.copy(status = status, isRefreshing = false, error = null) }
         } catch (e: OnyxFilterException) {
             // Session expirée : le dépôt ramène déjà l'application à l'écran de connexion.
-            val error = if (e is OnyxFilterException.SessionExpired) null else e.toUiText()
+            val error = if (e is OnyxFilterException.SessionEnded) null else e.toUiText()
             _uiState.update { it.copy(isRefreshing = false, error = error ?: it.error) }
         }
     }
@@ -105,7 +105,7 @@ class ProtectionViewModel(
                 _uiState.update { it.copy(status = status, isUpdating = false, error = null) }
             } catch (e: OnyxFilterException) {
                 _uiState.update { it.copy(isUpdating = false) }
-                if (e !is OnyxFilterException.SessionExpired) {
+                if (e !is OnyxFilterException.SessionEnded) {
                     _actionErrors.send(e.toUiText())
                 }
             }
