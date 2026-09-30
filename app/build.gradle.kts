@@ -14,8 +14,20 @@ android {
         applicationId = "io.github.anthodingo.onyxfilter"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = providers.environmentVariable("VERSION_CODE").map { it.toInt() }.getOrElse(1)
+        versionName = providers.environmentVariable("VERSION_NAME").getOrElse("1.0.0")
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystoreFile = providers.environmentVariable("KEYSTORE_FILE").orNull
+            if (!keystoreFile.isNullOrBlank()) {
+                storeFile = file(keystoreFile)
+                storePassword = providers.environmentVariable("KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("KEY_PASSWORD").get()
+            }
+        }
     }
 
     buildTypes {
@@ -26,6 +38,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            val keystoreFile = providers.environmentVariable("KEYSTORE_FILE").orNull
+            if (!keystoreFile.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

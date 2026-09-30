@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.0"
+agp = "9.4.1"
 # AGP 9 compile le Kotlin lui-même (Kotlin intégré) : cette version remplace celle qu'il embarque, et
 # fixe celle des plugins Compose et Serialization, publiés en même temps que Kotlin.
 kotlin = "2.4.20"
