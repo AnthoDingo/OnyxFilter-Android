@@ -2,8 +2,11 @@ package io.github.anthodingo.onyxfilter.data
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -11,6 +14,7 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.IOException
+import kotlin.coroutines.resumeWithException
 
 /**
  * Client HTTP de l'API mobile d'une instance OnyxFilter (`/api/auth/...`, `/api/protection`).
@@ -93,14 +97,37 @@ class OnyxFilterApi(
             else -> throw unexpected(response)
         }
 
-    private suspend fun <T> execute(request: Request, handle: (Response) -> T): T =
-        withContext(ioDispatcher) {
+    private suspend fun <T> execute(request: Request, handle: (Response) -> T): T {
+        val response = try {
+            httpClient.newCall(request).await()
+        } catch (e: IOException) {
+            throw OnyxFilterException.Network(e)
+        }
+        return withContext(ioDispatcher) {
             try {
-                httpClient.newCall(request).execute().use(handle)
+                response.use(handle)
             } catch (e: IOException) {
                 throw OnyxFilterException.Network(e)
             }
         }
+    }
+
+    // Appel asynchrone annulé avec la coroutine (écran quitté, délai d'un widget dépassé...) :
+    // Call.execute() bloquerait jusqu'à la réponse ou au délai d'OkHttp.
+    private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation { cancel() }
+        enqueue(
+            object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    continuation.resumeWithException(e)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    continuation.resume(response) { _, value, _ -> value.close() }
+                }
+            },
+        )
+    }
 
     private fun <T> jsonBody(serializer: KSerializer<T>, value: T): RequestBody =
         ApiJson.encodeToString(serializer, value).toRequestBody(JsonMediaType)

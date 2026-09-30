@@ -64,6 +64,33 @@
     <string name="custom_duration_limits">Entre 1 minute et 30 jours.</string>
     <string name="custom_duration_confirm">Désactiver</string>
 
+    <!-- Widgets -->
+    <string name="widget_toggle_label">Bascule OnyxFilter</string>
+    <string name="widget_toggle_description">Active ou désactive la protection d\'un simple toucher.</string>
+    <string name="widget_control_label">Protection OnyxFilter</string>
+    <string name="widget_control_description">État de la protection et désactivation temporaire.</string>
+    <string name="widget_state_enabled">Activée</string>
+    <string name="widget_state_disabled">Désactivée</string>
+    <string name="widget_state_offline">Hors ligne</string>
+    <string name="widget_state_logged_out">Connexion</string>
+    <string name="widget_tomorrow">demain</string>
+    <string name="widget_loading">Chargement…</string>
+    <string name="widget_logged_out">Touchez pour vous connecter.</string>
+    <string name="widget_error">Serveur injoignable. Touchez pour réessayer.</string>
+    <string name="widget_re_enable">Réactivation %1$s</string>
+    <string name="widget_enable">Activer</string>
+    <string name="widget_disable">Désactiver</string>
+    <string name="widget_duration_10_min">10 min</string>
+    <string name="widget_duration_1_h">1 h</string>
+    <string name="widget_duration_tomorrow">Demain</string>
+    <string name="widget_cd_disable_10_min">Désactiver pendant 10 minutes</string>
+    <string name="widget_cd_disable_1_h">Désactiver pendant 1 heure</string>
+    <string name="widget_cd_disable_tomorrow">Désactiver jusqu\'à demain</string>
+    <string name="widget_cd_toggle_disable">Protection activée. Touchez pour la désactiver.</string>
+    <string name="widget_cd_toggle_enable">Protection désactivée. Touchez pour la réactiver.</string>
+    <string name="widget_cd_refresh">Touchez pour actualiser l\'état de la protection.</string>
+    <string name="widget_cd_open">Touchez pour ouvrir OnyxFilter.</string>
+
     <!-- Actions -->
     <string name="action_enable">Activer la protection</string>
     <string name="action_disable">Désactiver la protection</string>

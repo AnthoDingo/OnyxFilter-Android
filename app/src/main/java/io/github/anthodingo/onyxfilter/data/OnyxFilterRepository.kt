@@ -37,6 +37,14 @@ class OnyxFilterRepository(
     private val _authState = MutableStateFlow<AuthState>(AuthState.Restoring)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
+    private val _protectionStatus = MutableStateFlow<ProtectionStatus?>(null)
+
+    /**
+     * Dernier état de la protection obtenu du serveur pendant cette session (quel que soit l'écran ou
+     * le widget à l'origine de l'appel), `null` avant le premier appel et après une déconnexion.
+     */
+    val protectionStatus: StateFlow<ProtectionStatus?> = _protectionStatus.asStateFlow()
+
     // Évite plusieurs rafraîchissements simultanés du même jeton (appel réseau).
     private val refreshMutex = Mutex()
 
@@ -68,6 +76,7 @@ class OnyxFilterRepository(
         val session = Session.create(serverUrl, username, tokens, clock.millis())
         sessionMutex.withLock {
             withContext(ioDispatcher) { sessionStore.save(session) }
+            _protectionStatus.value = null
             _authState.value = AuthState.LoggedIn(session)
         }
         return session
@@ -114,7 +123,12 @@ class OnyxFilterRepository(
                 throw OnyxFilterException.SessionExpired()
             }
         }
-        return ProtectionStatus.fromDto(dto, clock.instant())
+        val status = ProtectionStatus.fromDto(dto, clock.instant())
+        // Réponse arrivée après une déconnexion (ou une autre connexion) : elle ne vaut plus rien.
+        if (currentSession?.serverUrl == session.serverUrl) {
+            _protectionStatus.value = status
+        }
+        return status
     }
 
     private suspend fun refreshTokens(stale: Session): Session = refreshMutex.withLock {
@@ -146,6 +160,7 @@ class OnyxFilterRepository(
         sessionMutex.withLock {
             if (onlyIfCurrent != null && currentSession != onlyIfCurrent) return
             withContext(ioDispatcher) { sessionStore.clear() }
+            _protectionStatus.value = null
             _authState.value = AuthState.LoggedOut(sessionExpired)
         }
     }

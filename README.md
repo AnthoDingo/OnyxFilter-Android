@@ -19,6 +19,21 @@ filtrage DNS**, sans limite de durée ou temporairement.
 La protection est gérée par le serveur : elle est réactivée automatiquement à l'échéance, même si le
 téléphone est éteint, et toujours réactivée au redémarrage d'OnyxFilter.
 
+### Widgets de l'écran d'accueil
+
+- **Bascule OnyxFilter** (1 × 1) : bouclier vert ou rouge et état en un coup d'œil (heure de
+  réactivation pendant une désactivation temporaire) ; un toucher désactive la protection sans
+  limite de durée, ou la réactive.
+- **Protection OnyxFilter** (4 × 2, redimensionnable) : état détaillé, boutons *10 min*, *1 h* et
+  *Demain* pour une désactivation temporaire, et bouton *Désactiver* / *Activer*. Toucher l'en-tête
+  ouvre l'application.
+
+Les widgets se mettent à jour après chacune de leurs actions, à chaque changement fait dans
+l'application, juste après la fin d'une désactivation temporaire, et toutes les 30 minutes (pour
+refléter les changements faits depuis l'interface web). Serveur injoignable : ils gardent le dernier
+état connu et l'indiquent (« Hors ligne ») ; un toucher relance la lecture. Sans session, ils ouvrent
+l'écran de connexion.
+
 ## Prérequis côté serveur : l'API mobile
 
 L'interface web d'OnyxFilter (Blazor Server) n'expose pas d'API HTTP : l'application s'appuie sur une
@@ -99,6 +114,7 @@ Version minimale : Android 8.0 (API 26).
 app/src/main/java/io/github/anthodingo/onyxfilter/
 ├── data/     client HTTP (OkHttp), modèles JSON, session chiffrée, dépôt (rafraîchissement des jetons)
 ├── domain/   durées de désactivation, état de la protection, calculs d'affichage
-└── ui/       écrans Compose (connexion, protection), ViewModels, thème
+├── ui/       écrans Compose (connexion, protection), ViewModels, thème
+└── widget/   widgets de l'écran d'accueil (RemoteViews) et exécution de leurs actions
 server/       patch de l'API mobile pour le serveur OnyxFilter
 ```

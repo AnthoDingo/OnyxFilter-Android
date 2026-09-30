@@ -1,6 +1,8 @@
 package io.github.anthodingo.onyxfilter.data
 
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
@@ -9,6 +11,7 @@ import kotlinx.serialization.json.long
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -181,6 +184,19 @@ class OnyxFilterApiTest {
 
         assertEquals(400, error.code)
         assertEquals("La durée doit être comprise entre 1 et 2592000 secondes.", error.serverMessage)
+    }
+
+    @Test
+    fun `cancelling the coroutine cancels the http call`() = runBlocking {
+        // Le serveur ne répond jamais : sans annulation, l'appel attendrait le délai d'OkHttp.
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+
+        val started = System.nanoTime()
+        val result = withTimeoutOrNull(300) { api.login(baseUrl, "admin", "secret") }
+        val elapsedMillis = (System.nanoTime() - started) / 1_000_000
+
+        assertNull(result)
+        assertTrue("Appel non annulé ($elapsedMillis ms)", elapsedMillis < 3_000)
     }
 
     private fun json(code: Int, body: String) = MockResponse()

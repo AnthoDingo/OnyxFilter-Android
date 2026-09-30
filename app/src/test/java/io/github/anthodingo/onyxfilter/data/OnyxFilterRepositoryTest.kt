@@ -192,6 +192,21 @@ class OnyxFilterRepositoryTest {
         assertTrue(body, body.contains("\"durationSeconds\":1800"))
     }
 
+    @Test
+    fun `last protection status is published and cleared on logout`() = runTest {
+        store.save(session())
+        val repository = repository()
+        repository.restoreSession()
+        assertNull(repository.protectionStatus.value)
+        server.enqueue(protection("""{"enabled":false,"remainingSeconds":60}"""))
+
+        val status = repository.disableProtection(DisableDuration.Fixed(60))
+
+        assertEquals(status, repository.protectionStatus.value)
+        repository.logout()
+        assertNull(repository.protectionStatus.value)
+    }
+
     private fun session(accessToken: String = "access", expiresAt: Long = clock.millis() + 3_600_000) = Session(
         serverUrl = baseUrl,
         username = "admin",

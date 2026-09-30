@@ -1,6 +1,5 @@
 package io.github.anthodingo.onyxfilter.ui.protection
 
-import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -66,15 +64,12 @@ import io.github.anthodingo.onyxfilter.data.Session
 import io.github.anthodingo.onyxfilter.domain.DisableDuration
 import io.github.anthodingo.onyxfilter.domain.DurationParts
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
-import io.github.anthodingo.onyxfilter.domain.RelativeDay
-import io.github.anthodingo.onyxfilter.domain.relativeDay
 import io.github.anthodingo.onyxfilter.ui.UiText
 import io.github.anthodingo.onyxfilter.ui.asString
+import io.github.anthodingo.onyxfilter.ui.formatReEnableTime
 import io.github.anthodingo.onyxfilter.ui.theme.OnyxFilterTheme
 import kotlinx.coroutines.delay
 import java.time.Instant
-import java.time.ZoneId
-import java.util.Date
 
 @Composable
 fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
@@ -279,24 +274,9 @@ private fun statusDescription(status: ProtectionStatus, now: Instant): String {
     }
 }
 
-// "à 14:32", "demain à 00:00" ou "le mer. 7 oct. à 09:15", au format 12 h/24 h choisi sur le téléphone.
+// Relu à chaque recomposition : suit le compte à rebours et le format 12 h/24 h du téléphone.
 @Composable
-private fun reEnableTime(until: Instant, now: Instant): String {
-    val context = LocalContext.current
-    val locale = LocalConfiguration.current.locales[0]
-    val zone = ZoneId.systemDefault()
-    val date = Date.from(until)
-    val time = DateFormat.getTimeFormat(context).format(date)
-
-    return when (relativeDay(until.atZone(zone), now.atZone(zone))) {
-        RelativeDay.Today -> stringResource(R.string.protection_re_enable_today, time)
-        RelativeDay.Tomorrow -> stringResource(R.string.protection_re_enable_tomorrow, time)
-        RelativeDay.Later -> {
-            val day = DateFormat.format(DateFormat.getBestDateTimePattern(locale, "EEEdMMM"), date).toString()
-            stringResource(R.string.protection_re_enable_later, day, time)
-        }
-    }
-}
+private fun reEnableTime(until: Instant, now: Instant): String = formatReEnableTime(LocalContext.current, until, now)
 
 @Composable
 private fun formatRemaining(seconds: Long): String {
