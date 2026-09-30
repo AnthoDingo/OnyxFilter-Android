@@ -31,12 +31,11 @@ fun UiText.asString(context: Context): String = when (this) {
 
 /** Message d'erreur destiné à l'utilisateur. */
 fun OnyxFilterException.toUiText(): UiText = when (this) {
-    is OnyxFilterException.InvalidCredentials ->
-        serverMessage?.let(UiText::Raw) ?: UiText.Resource(R.string.error_invalid_credentials)
+    // Le message du serveur renvoie vers la page « Accès API » : plus utile qu'un texte générique.
+    is OnyxFilterException.Unauthorized ->
+        serverMessage?.let(UiText::Raw) ?: UiText.Resource(R.string.error_token_rejected)
 
-    is OnyxFilterException.Unauthorized,
-    is OnyxFilterException.SessionExpired,
-    -> UiText.Resource(R.string.error_session_expired)
+    is OnyxFilterException.SessionEnded -> UiText.Resource(R.string.error_token_rejected)
 
     is OnyxFilterException.ApiNotAvailable -> UiText.Resource(R.string.error_api_not_available)
 

@@ -52,13 +52,12 @@ import io.github.anthodingo.onyxfilter.ui.asString
 import io.github.anthodingo.onyxfilter.ui.theme.OnyxFilterTheme
 
 @Composable
-fun LoginScreen(viewModel: LoginViewModel, sessionExpired: Boolean) {
+fun LoginScreen(viewModel: LoginViewModel, tokenRejected: Boolean) {
     LoginContent(
         state = viewModel.uiState,
-        sessionExpired = sessionExpired,
+        tokenRejected = tokenRejected,
         onServerUrlChange = viewModel::onServerUrlChange,
-        onUsernameChange = viewModel::onUsernameChange,
-        onPasswordChange = viewModel::onPasswordChange,
+        onApiTokenChange = viewModel::onApiTokenChange,
         onSubmit = viewModel::login,
     )
 }
@@ -66,14 +65,13 @@ fun LoginScreen(viewModel: LoginViewModel, sessionExpired: Boolean) {
 @Composable
 private fun LoginContent(
     state: LoginUiState,
-    sessionExpired: Boolean,
+    tokenRejected: Boolean,
     onServerUrlChange: (String) -> Unit,
-    onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
+    onApiTokenChange: (String) -> Unit,
     onSubmit: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
-    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var tokenVisible by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -105,8 +103,8 @@ private fun LoginContent(
             modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (sessionExpired) {
-                MessageCard(UiText.Resource(R.string.login_session_expired), isError = false)
+            if (tokenRejected) {
+                MessageCard(UiText.Resource(R.string.login_token_rejected), isError = false)
             }
 
             OutlinedTextField(
@@ -134,40 +132,31 @@ private fun LoginContent(
             )
 
             OutlinedTextField(
-                value = state.username,
-                onValueChange = onUsernameChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentType = ContentType.Username },
-                label = { Text(stringResource(R.string.login_username)) },
-                singleLine = true,
-                enabled = !state.isLoading,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.None,
-                    autoCorrectEnabled = false,
-                    keyboardType = KeyboardType.Ascii,
-                    imeAction = ImeAction.Next,
-                ),
-            )
-
-            OutlinedTextField(
-                value = state.password,
-                onValueChange = onPasswordChange,
+                value = state.apiToken,
+                onValueChange = onApiTokenChange,
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentType = ContentType.Password },
-                label = { Text(stringResource(R.string.login_password)) },
+                label = { Text(stringResource(R.string.login_api_token)) },
+                placeholder = { Text(stringResource(R.string.login_api_token_placeholder)) },
+                supportingText = {
+                    if (state.tokenLooksWrong) {
+                        Text(stringResource(R.string.login_api_token_format), color = MaterialTheme.colorScheme.error)
+                    } else {
+                        Text(stringResource(R.string.login_api_token_help))
+                    }
+                },
                 singleLine = true,
                 enabled = !state.isLoading,
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                visualTransformation = if (tokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    IconButton(onClick = { tokenVisible = !tokenVisible }) {
                         Icon(
                             painter = painterResource(
-                                if (passwordVisible) R.drawable.ic_visibility_off else R.drawable.ic_visibility,
+                                if (tokenVisible) R.drawable.ic_visibility_off else R.drawable.ic_visibility,
                             ),
                             contentDescription = stringResource(
-                                if (passwordVisible) R.string.login_hide_password else R.string.login_show_password,
+                                if (tokenVisible) R.string.login_hide_token else R.string.login_show_token,
                             ),
                         )
                     }
@@ -239,13 +228,12 @@ private fun LoginPreview() {
         LoginContent(
             state = LoginUiState(
                 serverUrl = "http://192.168.1.10:5259",
-                username = "admin",
-                error = UiText.Resource(R.string.error_invalid_credentials),
+                apiToken = "abc",
+                error = UiText.Resource(R.string.error_token_rejected),
             ),
-            sessionExpired = true,
+            tokenRejected = true,
             onServerUrlChange = {},
-            onUsernameChange = {},
-            onPasswordChange = {},
+            onApiTokenChange = {},
             onSubmit = {},
         )
     }

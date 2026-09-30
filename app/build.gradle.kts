@@ -1,22 +1,33 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
+// Kotlin intégré à AGP 9 : pas de plugin org.jetbrains.kotlin.android. La cible JVM du code Kotlin suit
+// compileOptions.targetCompatibility.
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "io.github.anthodingo.onyxfilter"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "io.github.anthodingo.onyxfilter"
         minSdk = 26
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 37
+        versionCode = providers.environmentVariable("VERSION_CODE").map { it.toInt() }.getOrElse(1)
+        versionName = providers.environmentVariable("VERSION_NAME").getOrElse("1.0.0")
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystoreFile = providers.environmentVariable("KEYSTORE_FILE").orNull
+            if (!keystoreFile.isNullOrBlank()) {
+                storeFile = file(keystoreFile)
+                storePassword = providers.environmentVariable("KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("KEY_PASSWORD").get()
+            }
+        }
     }
 
     buildTypes {
@@ -27,6 +38,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            val keystoreFile = providers.environmentVariable("KEYSTORE_FILE").orNull
+            if (!keystoreFile.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -40,12 +55,6 @@ android {
     }
 }
 
-kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_17)
-    }
-}
-
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -56,7 +65,6 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons.core)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     implementation(libs.kotlinx.coroutines.android)

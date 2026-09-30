@@ -32,7 +32,7 @@ class ProtectionStatusTest {
 
     @Test
     fun `remaining seconds take precedence over server date`() {
-        val dto = ProtectionStateDto(enabled = false, disabledUntilUtc = "2030-01-01T00:00:00Z", remainingSeconds = 90)
+        val dto = ProtectionStateDto(enabled = false, disabledUntil = "2030-01-01T00:00:00+00:00", remainingSeconds = 90)
 
         val status = ProtectionStatus.fromDto(dto, now)
 
@@ -41,12 +41,19 @@ class ProtectionStatusTest {
     }
 
     @Test
-    fun `server date is used when remaining seconds are missing`() {
-        val dto = ProtectionStateDto(enabled = false, disabledUntilUtc = "2026-09-30T10:05:00.1234567Z")
+    fun `server date with offset is used when remaining seconds are missing`() {
+        val dto = ProtectionStateDto(enabled = false, disabledUntil = "2026-09-30T12:05:00.1234567+02:00")
 
         val status = ProtectionStatus.fromDto(dto, now)
 
         assertEquals(Instant.parse("2026-09-30T10:05:00.1234567Z"), status.disabledUntil)
+    }
+
+    @Test
+    fun `unreadable server date is treated as no end`() {
+        val status = ProtectionStatus.fromDto(ProtectionStateDto(enabled = false, disabledUntil = "demain"), now)
+
+        assertTrue(status.isDisabledIndefinitely)
     }
 
     @Test

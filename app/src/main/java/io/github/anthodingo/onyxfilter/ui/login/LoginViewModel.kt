@@ -20,8 +20,7 @@ import kotlinx.coroutines.launch
 
 data class LoginUiState(
     val serverUrl: String = "",
-    val username: String = "",
-    val password: String = "",
+    val apiToken: String = "",
     val isLoading: Boolean = false,
     val error: UiText? = null,
 ) {
@@ -29,8 +28,17 @@ data class LoginUiState(
     val isCleartext: Boolean
         get() = ServerUrl.normalize(serverUrl)?.let(ServerUrl::isCleartext) == true
 
+    /** Le jeton saisi n'a pas la forme de ceux d'OnyxFilter (souvent une erreur de copier-coller). */
+    val tokenLooksWrong: Boolean
+        get() = apiToken.isNotBlank() && !apiToken.trim().startsWith(TOKEN_PREFIX)
+
     val canSubmit: Boolean
-        get() = !isLoading && serverUrl.isNotBlank() && username.isNotBlank() && password.isNotEmpty()
+        get() = !isLoading && serverUrl.isNotBlank() && apiToken.isNotBlank()
+
+    companion object {
+        /** Préfixe des jetons créés par la page « Accès API » (ApiTokenService.TokenPrefix). */
+        const val TOKEN_PREFIX = "onyx_"
+    }
 }
 
 class LoginViewModel(private val repository: OnyxFilterRepository) : ViewModel() {
@@ -43,10 +51,7 @@ class LoginViewModel(private val repository: OnyxFilterRepository) : ViewModel()
     init {
         viewModelScope.launch {
             val hint = repository.loginHint() ?: return@launch
-            uiState = uiState.copy(
-                serverUrl = uiState.serverUrl.ifEmpty { hint.serverUrl },
-                username = uiState.username.ifEmpty { hint.username },
-            )
+            uiState = uiState.copy(serverUrl = uiState.serverUrl.ifEmpty { hint.serverUrl })
         }
     }
 
@@ -54,12 +59,8 @@ class LoginViewModel(private val repository: OnyxFilterRepository) : ViewModel()
         uiState = uiState.copy(serverUrl = value, error = null)
     }
 
-    fun onUsernameChange(value: String) {
-        uiState = uiState.copy(username = value, error = null)
-    }
-
-    fun onPasswordChange(value: String) {
-        uiState = uiState.copy(password = value, error = null)
+    fun onApiTokenChange(value: String) {
+        uiState = uiState.copy(apiToken = value, error = null)
     }
 
     fun login() {
@@ -75,10 +76,11 @@ class LoginViewModel(private val repository: OnyxFilterRepository) : ViewModel()
         uiState = state.copy(serverUrl = serverUrl, isLoading = true, error = null)
         viewModelScope.launch {
             uiState = try {
-                repository.login(serverUrl, state.username.trim(), state.password)
+                // Un jeton collé traîne souvent une espace ou un retour à la ligne.
+                repository.login(serverUrl, state.apiToken.trim())
                 // L'écran de la protection remplace celui-ci ; le formulaire est prêt pour une
-                // prochaine connexion (après une déconnexion), sans le mot de passe.
-                uiState.copy(password = "", isLoading = false)
+                // prochaine connexion (après une déconnexion), sans le jeton.
+                uiState.copy(apiToken = "", isLoading = false)
             } catch (e: OnyxFilterException) {
                 uiState.copy(isLoading = false, error = e.toUiText())
             }

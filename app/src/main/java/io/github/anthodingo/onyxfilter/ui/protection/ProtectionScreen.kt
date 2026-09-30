@@ -1,10 +1,10 @@
 package io.github.anthodingo.onyxfilter.ui.protection
 
-import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,10 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -64,17 +60,16 @@ import io.github.anthodingo.onyxfilter.R
 import io.github.anthodingo.onyxfilter.data.ServerUrl
 import io.github.anthodingo.onyxfilter.data.Session
 import io.github.anthodingo.onyxfilter.domain.DisableDuration
+import io.github.anthodingo.onyxfilter.domain.DnsStats
 import io.github.anthodingo.onyxfilter.domain.DurationParts
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
-import io.github.anthodingo.onyxfilter.domain.RelativeDay
-import io.github.anthodingo.onyxfilter.domain.relativeDay
+import io.github.anthodingo.onyxfilter.domain.StatsFormat
 import io.github.anthodingo.onyxfilter.ui.UiText
 import io.github.anthodingo.onyxfilter.ui.asString
+import io.github.anthodingo.onyxfilter.ui.formatReEnableTime
 import io.github.anthodingo.onyxfilter.ui.theme.OnyxFilterTheme
 import kotlinx.coroutines.delay
 import java.time.Instant
-import java.time.ZoneId
-import java.util.Date
 
 @Composable
 fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
@@ -92,10 +87,13 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
         viewModel.actionErrors.collect { message -> snackbarHostState.showSnackbar(message.asString(context)) }
     }
 
+    val stats by viewModel.stats.collectAsStateWithLifecycle()
+
     ProtectionContent(
         state = state,
+        stats = stats,
         now = rememberNow(ticking = state.status?.isDisabledTemporarily == true),
-        serverLabel = stringResource(R.string.protection_server_label, ServerUrl.displayName(session.serverUrl), session.username),
+        serverLabel = ServerUrl.displayName(session.serverUrl),
         snackbarHostState = snackbarHostState,
         onRefresh = viewModel::refresh,
         onEnable = viewModel::enable,
@@ -133,6 +131,7 @@ private fun rememberNow(ticking: Boolean): Instant {
 @Composable
 private fun ProtectionContent(
     state: ProtectionUiState,
+    stats: DnsStats?,
     now: Instant,
     serverLabel: String,
     snackbarHostState: SnackbarHostState,
@@ -160,16 +159,16 @@ private fun ProtectionContent(
                 },
                 actions = {
                     IconButton(onClick = onRefresh, enabled = !state.isRefreshing) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
+                        Icon(painterResource(R.drawable.ic_refresh), contentDescription = stringResource(R.string.action_refresh))
                     }
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more))
+                            Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_logout)) },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null) },
+                                leadingIcon = { Icon(painterResource(R.drawable.ic_logout), contentDescription = null) },
                                 onClick = {
                                     menuExpanded = false
                                     onLogout()
@@ -206,6 +205,7 @@ private fun ProtectionContent(
                         StatusCard(status, now, contentModifier)
                         PrimaryAction(status, state.isUpdating, onEnable, onDisable, contentModifier)
                         DisableOptions(status, state.isUpdating, onDisable, onCustomDuration, contentModifier)
+                        stats?.let { StatsCard(it, contentModifier) }
                         Text(
                             text = stringResource(R.string.protection_restart_note),
                             modifier = contentModifier,
@@ -279,24 +279,9 @@ private fun statusDescription(status: ProtectionStatus, now: Instant): String {
     }
 }
 
-// "à 14:32", "demain à 00:00" ou "le mer. 7 oct. à 09:15", au format 12 h/24 h choisi sur le téléphone.
+// Relu à chaque recomposition : suit le compte à rebours et le format 12 h/24 h du téléphone.
 @Composable
-private fun reEnableTime(until: Instant, now: Instant): String {
-    val context = LocalContext.current
-    val locale = LocalConfiguration.current.locales[0]
-    val zone = ZoneId.systemDefault()
-    val date = Date.from(until)
-    val time = DateFormat.getTimeFormat(context).format(date)
-
-    return when (relativeDay(until.atZone(zone), now.atZone(zone))) {
-        RelativeDay.Today -> stringResource(R.string.protection_re_enable_today, time)
-        RelativeDay.Tomorrow -> stringResource(R.string.protection_re_enable_tomorrow, time)
-        RelativeDay.Later -> {
-            val day = DateFormat.format(DateFormat.getBestDateTimePattern(locale, "EEEdMMM"), date).toString()
-            stringResource(R.string.protection_re_enable_later, day, time)
-        }
-    }
-}
+private fun reEnableTime(until: Instant, now: Instant): String = formatReEnableTime(LocalContext.current, until, now)
 
 @Composable
 private fun formatRemaining(seconds: Long): String {
@@ -412,6 +397,46 @@ private fun StaleStatusBanner(error: UiText, modifier: Modifier = Modifier) {
     }
 }
 
+// Chiffres clés des dernières 24 heures : trois valeurs, pas de graphique (voir les widgets pour
+// l'activité heure par heure).
+@Composable
+private fun StatsCard(stats: DnsStats, modifier: Modifier = Modifier) {
+    val locale = LocalConfiguration.current.locales[0]
+    Card(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(stringResource(R.string.stats_card_title), style = MaterialTheme.typography.titleMedium)
+            Row(modifier = Modifier.fillMaxWidth()) {
+                StatValue(StatsFormat.count(stats.totalQueries, locale), stringResource(R.string.stats_label_queries), Modifier.weight(1f))
+                StatValue(StatsFormat.count(stats.blockedQueries, locale), stringResource(R.string.stats_label_blocked), Modifier.weight(1f))
+                StatValue(StatsFormat.percent(stats.blockedRatio, locale), stringResource(R.string.stats_label_ratio), Modifier.weight(1f))
+            }
+            stats.topBlockedDomain?.let { top ->
+                Text(
+                    text = stringResource(R.string.stats_top_blocked, top.name, StatsFormat.count(top.count, locale)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatValue(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(value, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
+    }
+}
+
 @Composable
 private fun LoadError(error: UiText, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Column(
@@ -448,8 +473,9 @@ private fun ProtectionEnabledPreview() {
     OnyxFilterTheme {
         ProtectionContent(
             state = ProtectionUiState(status = ProtectionStatus(enabled = true, disabledUntil = null), isRefreshing = false),
+            stats = PreviewStats,
             now = Instant.now(),
-            serverLabel = "onyxfilter.maison · admin",
+            serverLabel = "onyxfilter.maison:7037",
             snackbarHostState = remember { SnackbarHostState() },
             onRefresh = {},
             onEnable = {},
@@ -471,8 +497,9 @@ private fun ProtectionDisabledPreview() {
                 isRefreshing = false,
                 error = UiText.Resource(R.string.error_timeout),
             ),
+            stats = null,
             now = now,
-            serverLabel = "onyxfilter.maison · admin",
+            serverLabel = "onyxfilter.maison:7037",
             snackbarHostState = remember { SnackbarHostState() },
             onRefresh = {},
             onEnable = {},
@@ -482,3 +509,13 @@ private fun ProtectionDisabledPreview() {
         )
     }
 }
+
+private val PreviewStats = DnsStats(
+    totalQueries = 12_345,
+    blockedQueries = 321,
+    blockedRatio = 0.026,
+    averageProcessingTimeMs = 4,
+    topBlockedDomain = DnsStats.RankedItem("ads.example", 87),
+    hourlyQueries = List(24) { (it * 37L) % 500 },
+    lastHourStart = null,
+)

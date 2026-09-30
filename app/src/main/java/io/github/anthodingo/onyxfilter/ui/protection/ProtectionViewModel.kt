@@ -10,6 +10,7 @@ import io.github.anthodingo.onyxfilter.OnyxFilterApplication
 import io.github.anthodingo.onyxfilter.data.OnyxFilterException
 import io.github.anthodingo.onyxfilter.data.OnyxFilterRepository
 import io.github.anthodingo.onyxfilter.domain.DisableDuration
+import io.github.anthodingo.onyxfilter.domain.DnsStats
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
 import io.github.anthodingo.onyxfilter.ui.UiText
 import io.github.anthodingo.onyxfilter.ui.toUiText
@@ -49,7 +50,11 @@ class ProtectionViewModel(
     private val _actionErrors = Channel<UiText>(Channel.BUFFERED)
     val actionErrors: Flow<UiText> = _actionErrors.receiveAsFlow()
 
+    /** Statistiques des dernières 24 heures (partagées avec les widgets par le dépôt). */
+    val stats: StateFlow<DnsStats?> = repository.stats
+
     private var pollingJob: Job? = null
+    private var lastStatsLoadMillis: Long? = null
 
     /**
      * Actualise l'état régulièrement tant que l'écran est visible, pour refléter les changements faits
@@ -72,7 +77,7 @@ class ProtectionViewModel(
 
     fun refresh() {
         _uiState.update { it.copy(isRefreshing = true) }
-        viewModelScope.launch { load() }
+        viewModelScope.launch { load(forceStats = true) }
     }
 
     fun enable() = runAction { repository.enableProtection() }
@@ -84,14 +89,30 @@ class ProtectionViewModel(
         viewModelScope.launch { repository.logout() }
     }
 
-    private suspend fun load() {
+    private suspend fun load(forceStats: Boolean = false) {
         try {
             val status = repository.getProtection()
             _uiState.update { it.copy(status = status, isRefreshing = false, error = null) }
         } catch (e: OnyxFilterException) {
             // Session expirée : le dépôt ramène déjà l'application à l'écran de connexion.
-            val error = if (e is OnyxFilterException.SessionExpired) null else e.toUiText()
+            val error = if (e is OnyxFilterException.SessionEnded) null else e.toUiText()
             _uiState.update { it.copy(isRefreshing = false, error = error ?: it.error) }
+            return
+        }
+        loadStatsIfStale(forceStats)
+    }
+
+    // Les statistiques évoluent lentement : relues au plus toutes les STATS_INTERVAL_MILLIS. Un échec
+    // reste silencieux, l'état de la protection signale déjà les problèmes de connexion.
+    private suspend fun loadStatsIfStale(force: Boolean) {
+        val now = clock.millis()
+        val last = lastStatsLoadMillis
+        if (!force && last != null && now - last < STATS_INTERVAL_MILLIS) return
+        try {
+            repository.getStats()
+            lastStatsLoadMillis = now
+        } catch (e: OnyxFilterException) {
+            // Voir ci-dessus.
         }
     }
 
@@ -105,7 +126,7 @@ class ProtectionViewModel(
                 _uiState.update { it.copy(status = status, isUpdating = false, error = null) }
             } catch (e: OnyxFilterException) {
                 _uiState.update { it.copy(isUpdating = false) }
-                if (e !is OnyxFilterException.SessionExpired) {
+                if (e !is OnyxFilterException.SessionEnded) {
                     _actionErrors.send(e.toUiText())
                 }
             }
@@ -123,6 +144,7 @@ class ProtectionViewModel(
 
     companion object {
         private const val POLL_INTERVAL_MILLIS = 15_000L
+        private const val STATS_INTERVAL_MILLIS = 60_000L
 
         // Laisse au serveur le temps de réactiver la protection avant de relire son état.
         private const val RE_ENABLE_GRACE_MILLIS = 1_000L

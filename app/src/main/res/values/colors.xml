@@ -3,4 +3,18 @@
     <color name="ic_launcher_background">#FF0F172A</color>
     <color name="window_background_light">#FFFFFBFE</color>
     <color name="window_background_dark">#FF0B1120</color>
+
+    <!-- Widgets (variantes sombres dans values-night) -->
+    <color name="widget_neutral_container">#FFF1F5F9</color>
+    <color name="widget_enabled_container">#FFDCFCE7</color>
+    <color name="widget_disabled_container">#FFFEE2E2</color>
+    <color name="widget_button_background">#1F0F172A</color>
+    <color name="widget_button_enable">#FF15803D</color>
+    <color name="widget_button_disable">#FFDC2626</color>
+    <color name="widget_text_primary">#FF0F172A</color>
+    <color name="widget_text_secondary">#FF475569</color>
+    <!-- Histogramme : série 1 de la palette de référence, validée (bande de luminance, chroma,
+         contraste ≥ 3:1) sur widget_neutral_container, en clair comme en sombre. -->
+    <color name="widget_chart_series">#FF2A78D6</color>
+    <color name="widget_chart_grid">#FFCBD5E1</color>
 </resources>

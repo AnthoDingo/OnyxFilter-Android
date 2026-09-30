@@ -2,7 +2,6 @@ package io.github.anthodingo.onyxfilter.domain
 
 import io.github.anthodingo.onyxfilter.data.ProtectionStateDto
 import java.time.Instant
-import java.time.format.DateTimeParseException
 
 /** État de la protection (filtrage DNS) de l'instance OnyxFilter. */
 data class ProtectionStatus(
@@ -35,16 +34,10 @@ data class ProtectionStatus(
 
             val until = when {
                 dto.remainingSeconds != null -> now.plusSeconds(dto.remainingSeconds)
-                dto.disabledUntilUtc != null -> parseInstant(dto.disabledUntilUtc)
+                dto.disabledUntil != null -> parseApiInstant(dto.disabledUntil)
                 else -> null
             }
             return ProtectionStatus(enabled = false, disabledUntil = until)
-        }
-
-        private fun parseInstant(value: String): Instant? = try {
-            Instant.parse(value)
-        } catch (e: DateTimeParseException) {
-            null
         }
     }
 }

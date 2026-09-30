@@ -1,13 +1,13 @@
 # OnyxFilter pour Android
 
 Application Android pour piloter une instance [OnyxFilter](https://github.com/AnthoDingo/OnyxFilter) :
-après connexion avec un compte de l'interface web, elle permet d'**activer ou de désactiver le
-filtrage DNS**, sans limite de durée ou temporairement.
+elle permet d'**activer ou de désactiver le filtrage DNS**, sans limite de durée ou temporairement,
+depuis l'application, des widgets de l'écran d'accueil ou une tuile des réglages rapides.
 
 ## Fonctionnalités
 
-- Connexion à l'instance (adresse, nom d'utilisateur, mot de passe du compte OnyxFilter) ; la session
-  est conservée entre deux lancements et le jeton d'accès est renouvelé automatiquement.
+- Connexion à l'instance avec son adresse et un **jeton d'API** ; la session est conservée entre deux
+  lancements.
 - État de la protection en temps réel : actualisation toutes les 15 secondes quand l'écran est
   visible, compte à rebours et heure de réactivation pendant une désactivation temporaire.
 - Désactivation **sans limite de durée** (bouton principal, comme sur le tableau de bord web).
@@ -19,60 +19,79 @@ filtrage DNS**, sans limite de durée ou temporairement.
 La protection est gérée par le serveur : elle est réactivée automatiquement à l'échéance, même si le
 téléphone est éteint, et toujours réactivée au redémarrage d'OnyxFilter.
 
-## Prérequis côté serveur : l'API mobile
+### Widgets de l'écran d'accueil
 
-L'interface web d'OnyxFilter (Blazor Server) n'expose pas d'API HTTP : l'application s'appuie sur une
-petite API REST à ajouter au serveur, fournie dans [`server/onyxfilter-api-mobile.patch`](server/onyxfilter-api-mobile.patch)
-(nouveau fichier `src/OnyxFilter/Api/MobileApiEndpoints.cs` et deux ajouts dans `Program.cs`).
+- **Bascule OnyxFilter** (1 × 1) : bouclier vert ou rouge et état en un coup d'œil (heure de
+  réactivation pendant une désactivation temporaire) ; un toucher désactive la protection sans
+  limite de durée, ou la réactive.
+- **Protection OnyxFilter** (4 × 2, redimensionnable) : état détaillé, boutons *10 min*, *1 h* et
+  *Demain* pour une désactivation temporaire, et bouton *Désactiver* / *Activer*. Toucher l'en-tête
+  ouvre l'application.
 
-Depuis la racine du dépôt OnyxFilter :
+### Widgets de statistiques
 
-```sh
-git apply /chemin/vers/OnyxFilter-Android/server/onyxfilter-api-mobile.patch
-```
+- **Statistiques OnyxFilter** (2 × 2) : nombre de requêtes DNS des dernières 24 heures, nombre et
+  part des requêtes bloquées, heure de la dernière mise à jour.
+- **Activité OnyxFilter** (4 × 2, redimensionnable) : requêtes, bloquées et part bloquée, et
+  histogramme des requêtes heure par heure sur 24 heures (dont l'heure de pointe est lue par
+  TalkBack).
 
-L'API utilise les comptes existants (ASP.NET Core Identity) avec des jetons porteurs (« Bearer ») ;
-l'interface web reste authentifiée par cookie et n'est pas modifiée. Sans cette API, l'application
-affiche « Ce serveur ne propose pas l'API de l'application mobile ».
+Mis à jour toutes les 30 minutes, à chaque lecture faite par l'application (au plus une fois par
+minute quand l'écran de la protection est ouvert, qui affiche aussi ces chiffres) et d'un toucher sur
+leur bouton d'actualisation. Serveur injoignable : ils gardent les derniers chiffres et l'heure de leur
+lecture. Toucher le widget ouvre l'application.
 
-### Contrat de l'API
+### Tuile des réglages rapides
 
-| Méthode | Chemin | Corps | Réponse |
-|---|---|---|---|
-| `POST` | `/api/auth/login` | `{ "username", "password" }` | `{ "tokenType", "accessToken", "expiresIn", "refreshToken" }` ; `401` + `application/problem+json` si refusé |
-| `POST` | `/api/auth/refresh` | `{ "refreshToken" }` | nouveaux jetons ; `401` si expiré ou révoqué |
-| `GET` | `/api/protection` | — | état (voir ci-dessous) |
-| `PUT` | `/api/protection` | `{ "enabled": true }` : réactive<br>`{ "enabled": false }` : désactive sans limite<br>`{ "enabled": false, "durationSeconds": 600 }` : désactive pendant 10 min (1 s à 30 jours) | état |
+Une tuile **OnyxFilter** s'ajoute au volet des réglages rapides (à côté de la lampe torche, du Wi-Fi…) :
+allumée quand le filtrage est actif, elle le désactive sans limite de durée ou le réactive d'un
+toucher. Sous son nom (Android 10+) : *Activée*, *Désactivée*, *Jusqu'à 14:32* pendant une
+désactivation temporaire, ou *Hors ligne*. Un appui long ouvre l'application, pour choisir une durée.
+Depuis l'écran de verrouillage, le téléphone doit d'abord être déverrouillé.
 
-Les appels `/api/protection` exigent l'en-tête `Authorization: Bearer <accessToken>`. État renvoyé :
+Les widgets et la tuile se mettent à jour après chacune de leurs actions, à chaque changement fait dans
+l'application, juste après la fin d'une désactivation temporaire, et toutes les 30 minutes (pour
+refléter les changements faits depuis l'interface web) ; la tuile relit aussi l'état à l'ouverture du
+volet (au plus une fois toutes les 30 secondes). Serveur injoignable : ils gardent le dernier
+état connu et l'indiquent (« Hors ligne ») ; un toucher relance la lecture. Sans session, ils ouvrent
+l'écran de connexion.
 
-```json
-{ "enabled": false, "disabledUntilUtc": "2026-09-30T12:00:00Z", "remainingSeconds": 540 }
-```
+## Côté serveur : l'API HTTP d'OnyxFilter
 
-La durée d'une désactivation est transmise en secondes (et la durée restante renvoyée par le serveur)
-pour ne pas dépendre de la synchronisation des horloges du téléphone et du serveur.
+L'application utilise l'API HTTP d'OnyxFilter (`/api/v1`), sans modification du serveur. Elle
+s'authentifie par un **jeton d'API** : dans l'interface web, ouvrir *Paramètres › Accès API*, créer un
+jeton (par exemple « Téléphone ») et le copier — il n'est affiché qu'une fois. Le révoquer depuis la même
+page déconnecte l'application.
 
-Le jeton d'accès est valable 1 heure et le jeton de rafraîchissement 14 jours (valeurs par défaut
-d'ASP.NET Core, réglables via `AddBearerToken`) : au-delà de 14 jours sans ouvrir l'application, il
-faut se reconnecter. Un changement de mot de passe (par exemple avec `--reset`) révoque le jeton de
-rafraîchissement : la session de l'application prend fin au plus tard à l'expiration du jeton d'accès.
+Points d'accès utilisés (en-tête `Authorization: Bearer <jeton>`) :
+
+| Méthode | Chemin | Usage |
+|---|---|---|
+| `GET` | `/api/v1/protection` | état ; sert aussi à vérifier le jeton à la connexion |
+| `POST` | `/api/v1/protection/disable` | `{}` : sans limite ; `{ "durationSeconds": 600 }` : pendant 10 min |
+| `POST` | `/api/v1/protection/enable` | réactivation |
+| `GET` | `/api/v1/stats` | statistiques des dernières 24 heures |
+
+La durée d'une désactivation est transmise en secondes, et l'application affiche la durée restante
+renvoyée par le serveur : l'affichage ne dépend pas de la synchronisation des horloges du téléphone et du
+serveur. Une instance sans `/api/v1` (version antérieure) est signalée à la connexion.
 
 ## Utilisation
 
 Saisir l'adresse de l'interface web d'OnyxFilter, par exemple `https://onyxfilter.maison:7037` ou
-`http://192.168.1.10:5259` (sans schéma, `https://` est ajouté). Un chemin est accepté pour une instance
-servie derrière un proxy inverse (`https://maison.example/onyxfilter`).
+`http://192.168.1.10:5259` (sans schéma, `https://` est ajouté), et le jeton d'API. Un chemin est accepté
+pour une instance servie derrière un proxy inverse (`https://maison.example/onyxfilter`).
 
 - **HTTP** est autorisé pour les instances uniquement joignables sur le réseau local ; l'écran de
-  connexion signale alors que le mot de passe transite en clair.
+  connexion signale alors que le jeton transite en clair.
 - **Certificat auto-signé** : installer le certificat de l'autorité qui l'a émis dans
   *Paramètres → Sécurité → Chiffrement et identifiants → Installer un certificat → Certificat CA* ;
   l'application fait confiance aux autorités installées par l'utilisateur.
 
 ## Compilation
 
-Prérequis : JDK 17 et le SDK Android (API 36), ou Android Studio.
+Android Studio (récent), ou en ligne de commande avec un JDK 17 ou plus récent (jusqu'au JDK 25) et le
+SDK Android (API 37). Le wrapper télécharge Gradle 9.8 et en vérifie l'empreinte.
 
 ```sh
 ./gradlew assembleDebug          # APK : app/build/outputs/apk/debug/app-debug.apk
@@ -80,25 +99,26 @@ Prérequis : JDK 17 et le SDK Android (API 36), ou Android Studio.
 ./gradlew lintDebug
 ```
 
-L'intégration continue (GitHub Actions, `.github/workflows/android.yml`) exécute les tests et le lint
-et publie l'APK de débogage en artefact de chaque exécution.
+Outils : Android Gradle Plugin 9.4 (Kotlin intégré), Kotlin 2.4, Jetpack Compose (BOM 2026.09),
+Material 3. L'intégration continue (GitHub Actions, `.github/workflows/android.yml`) exécute les tests et
+le lint et publie l'APK de débogage en artefact de chaque exécution.
 
-Version minimale : Android 8.0 (API 26).
+Version minimale : Android 8.0 (API 26) ; cible : Android 17 (API 37).
 
 ## Sécurité
 
-- Le mot de passe n'est jamais enregistré : seuls les jetons le sont, chiffrés (AES-GCM) avec une clé
-  de l'Android Keystore qui ne quitte pas l'appareil. Ils sont exclus des sauvegardes et des transferts
-  entre appareils.
-- Comme la page de connexion web, l'API ne verrouille pas le compte après des échecs répétés : pour une
-  instance exposée sur Internet, préférer un accès via VPN ou un proxy inverse limitant les tentatives.
+- Le jeton d'API est chiffré (AES-GCM) avec une clé de l'Android Keystore qui ne quitte pas l'appareil ;
+  il est exclu des sauvegardes et des transferts entre appareils. Aucun mot de passe n'est demandé ni
+  conservé.
+- Un jeton donne accès à toute l'API : en créer un par appareil, pour pouvoir le révoquer seul.
 
 ## Structure
 
 ```
 app/src/main/java/io/github/anthodingo/onyxfilter/
-├── data/     client HTTP (OkHttp), modèles JSON, session chiffrée, dépôt (rafraîchissement des jetons)
-├── domain/   durées de désactivation, état de la protection, calculs d'affichage
-└── ui/       écrans Compose (connexion, protection), ViewModels, thème
-server/       patch de l'API mobile pour le serveur OnyxFilter
+├── data/     client HTTP (OkHttp), modèles JSON, session chiffrée, dépôt
+├── domain/   durées de désactivation, état de la protection, statistiques, calculs d'affichage
+├── ui/       écrans Compose (connexion, protection), ViewModels, thème
+├── tile/     tuile des réglages rapides
+└── widget/   widgets de l'écran d'accueil (RemoteViews) et état partagé avec la tuile
 ```

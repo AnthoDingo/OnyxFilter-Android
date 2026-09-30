@@ -4,20 +4,21 @@
 
     <!-- Connexion -->
     <string name="login_subtitle">Connectez-vous à votre instance OnyxFilter pour gérer le filtrage DNS.</string>
-    <string name="login_session_expired">Votre session a expiré. Reconnectez-vous pour continuer.</string>
+    <string name="login_token_rejected">Le serveur a refusé le jeton d\'API (révoqué ?). Saisissez-en un nouveau pour continuer.</string>
     <string name="login_server_url">Adresse du serveur</string>
     <string name="login_server_url_placeholder" translatable="false">https://onyxfilter.maison:7037</string>
     <string name="login_server_url_help">Adresse de l\'interface web d\'OnyxFilter.</string>
     <string name="login_server_url_cleartext">Connexion non chiffrée (HTTP) : à n\'utiliser que sur votre réseau local.</string>
-    <string name="login_username">Nom d\'utilisateur</string>
-    <string name="login_password">Mot de passe</string>
-    <string name="login_show_password">Afficher le mot de passe</string>
-    <string name="login_hide_password">Masquer le mot de passe</string>
+    <string name="login_api_token">Jeton d\'API</string>
+    <string name="login_api_token_placeholder" translatable="false">onyx_…</string>
+    <string name="login_api_token_help">À créer dans l\'interface web : Paramètres › Accès API. Il n\'est affiché qu\'une fois.</string>
+    <string name="login_api_token_format">Un jeton OnyxFilter commence par « onyx_ » : vérifiez le copier-coller.</string>
+    <string name="login_show_token">Afficher le jeton</string>
+    <string name="login_hide_token">Masquer le jeton</string>
     <string name="login_submit">Se connecter</string>
     <string name="login_in_progress">Connexion…</string>
 
     <!-- Protection -->
-    <string name="protection_server_label" translatable="false">%1$s · %2$s</string>
     <string name="protection_enabled">Protection activée</string>
     <string name="protection_disabled">Protection désactivée</string>
     <string name="protection_enabled_description">Le filtrage DNS est actif.</string>
@@ -64,6 +65,71 @@
     <string name="custom_duration_limits">Entre 1 minute et 30 jours.</string>
     <string name="custom_duration_confirm">Désactiver</string>
 
+    <!-- Widgets -->
+    <string name="widget_toggle_label">Bascule OnyxFilter</string>
+    <string name="widget_toggle_description">Active ou désactive la protection d\'un simple toucher.</string>
+    <string name="widget_control_label">Protection OnyxFilter</string>
+    <string name="widget_control_description">État de la protection et désactivation temporaire.</string>
+    <string name="widget_state_enabled">Activée</string>
+    <string name="widget_state_disabled">Désactivée</string>
+    <string name="widget_state_offline">Hors ligne</string>
+    <string name="widget_state_logged_out">Connexion</string>
+    <string name="widget_tomorrow">demain</string>
+    <string name="widget_loading">Chargement…</string>
+    <string name="widget_logged_out">Touchez pour vous connecter.</string>
+    <string name="widget_error">Serveur injoignable. Touchez pour réessayer.</string>
+    <string name="widget_re_enable">Réactivation %1$s</string>
+    <string name="widget_enable">Activer</string>
+    <string name="widget_disable">Désactiver</string>
+    <string name="widget_duration_10_min">10 min</string>
+    <string name="widget_duration_1_h">1 h</string>
+    <string name="widget_duration_tomorrow">Demain</string>
+    <string name="widget_cd_disable_10_min">Désactiver pendant 10 minutes</string>
+    <string name="widget_cd_disable_1_h">Désactiver pendant 1 heure</string>
+    <string name="widget_cd_disable_tomorrow">Désactiver jusqu\'à demain</string>
+    <string name="widget_cd_toggle_disable">Protection activée. Touchez pour la désactiver.</string>
+    <string name="widget_cd_toggle_enable">Protection désactivée. Touchez pour la réactiver.</string>
+    <string name="widget_cd_refresh">Touchez pour actualiser l\'état de la protection.</string>
+    <string name="widget_cd_open">Touchez pour ouvrir OnyxFilter.</string>
+
+    <!-- Widgets de statistiques -->
+    <string name="stats_summary_label">Statistiques OnyxFilter</string>
+    <string name="stats_summary_description">Requêtes DNS et part bloquée sur les dernières 24 heures.</string>
+    <string name="stats_activity_label">Activité OnyxFilter</string>
+    <string name="stats_activity_description">Chiffres clés et requêtes heure par heure sur 24 heures.</string>
+    <string name="stats_last_24h">Dernières 24 h</string>
+    <string name="stats_card_title">Dernières 24 heures</string>
+    <string name="stats_top_blocked">Le plus bloqué : %1$s (%2$s)</string>
+    <string name="stats_activity_title">Activité 24 h</string>
+    <string name="stats_queries_label">requêtes DNS</string>
+    <string name="stats_label_queries">requêtes</string>
+    <string name="stats_label_blocked">bloquées</string>
+    <string name="stats_label_ratio">part bloquée</string>
+    <plurals name="stats_blocked_line">
+        <item quantity="one">%1$s bloquée · %2$s</item>
+        <item quantity="many">%1$s bloquées · %2$s</item>
+        <item quantity="other">%1$s bloquées · %2$s</item>
+    </plurals>
+    <string name="stats_updated_at">Mis à jour à %1$s</string>
+    <string name="stats_offline_since">Hors ligne · données de %1$s</string>
+    <string name="stats_unreachable">Serveur injoignable.</string>
+    <string name="stats_refresh">Actualiser les statistiques</string>
+    <string name="stats_chart_empty">Aucune requête sur 24 h</string>
+    <string name="stats_chart_description">Requêtes par heure sur 24 heures ; pic de %1$s requêtes.</string>
+    <string name="stats_chart_description_at">Requêtes par heure sur 24 heures ; pic de %1$s requêtes à %2$s.</string>
+    <string name="stats_axis_start">il y a 24 h</string>
+    <string name="stats_axis_end">maintenant</string>
+    <!-- Valeurs d'exemple de l'aperçu dans le sélecteur de widgets. -->
+    <string name="stats_preview_total" translatable="false">12 345</string>
+    <string name="stats_preview_blocked" translatable="false">321</string>
+    <string name="stats_preview_ratio" translatable="false">2,6 %</string>
+    <string name="stats_preview_blocked_line" translatable="false">321 bloquées · 2,6 %</string>
+
+    <!-- Tuile des réglages rapides -->
+    <string name="tile_logged_out">Connexion requise</string>
+    <string name="tile_updating">Mise à jour…</string>
+    <string name="tile_disabled_until">Jusqu\'à %1$s</string>
+
     <!-- Actions -->
     <string name="action_enable">Activer la protection</string>
     <string name="action_disable">Désactiver la protection</string>
@@ -75,9 +141,8 @@
 
     <!-- Erreurs -->
     <string name="error_invalid_server_url">Adresse de serveur invalide.</string>
-    <string name="error_invalid_credentials">Nom d\'utilisateur ou mot de passe incorrect.</string>
-    <string name="error_session_expired">Votre session a expiré. Reconnectez-vous.</string>
-    <string name="error_api_not_available">Ce serveur ne propose pas l\'API de l\'application mobile. Vérifiez l\'adresse, et que votre instance OnyxFilter est à jour.</string>
+    <string name="error_token_rejected">Jeton d\'API refusé : il est invalide ou a été révoqué.</string>
+    <string name="error_api_not_available">Ce serveur ne propose pas l\'API d\'OnyxFilter (/api/v1). Vérifiez l\'adresse, et que votre instance OnyxFilter est à jour.</string>
     <string name="error_http">Erreur du serveur (HTTP %1$d).</string>
     <string name="error_http_with_detail">Erreur du serveur (HTTP %1$d) : %2$s</string>
     <string name="error_unknown_host">Serveur introuvable. Vérifiez l\'adresse.</string>
