@@ -1,5 +1,6 @@
 package io.github.anthodingo.onyxfilter.tile
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Intent
@@ -109,6 +110,9 @@ class ProtectionTileService : TileService() {
         }
     }
 
+    // La variante à Intent lève une exception sur Android 14+ pour une application ciblant l'API 34 ou
+    // plus : elle n'est appelée qu'avant Android 14, où elle reste la seule disponible.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openApp() {
         val intent = Intent.makeMainActivity(ComponentName(this, MainActivity::class.java))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -117,7 +121,6 @@ class ProtectionTileService : TileService() {
                 PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
             )
         } else {
-            // Seule variante disponible avant Android 14 (celle à PendingIntent n'existe pas encore).
             @Suppress("DEPRECATION")
             startActivityAndCollapse(intent)
         }
