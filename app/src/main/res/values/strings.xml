@@ -92,6 +92,39 @@
     <string name="widget_cd_refresh">Touchez pour actualiser l\'état de la protection.</string>
     <string name="widget_cd_open">Touchez pour ouvrir OnyxFilter.</string>
 
+    <!-- Widgets de statistiques -->
+    <string name="stats_summary_label">Statistiques OnyxFilter</string>
+    <string name="stats_summary_description">Requêtes DNS et part bloquée sur les dernières 24 heures.</string>
+    <string name="stats_activity_label">Activité OnyxFilter</string>
+    <string name="stats_activity_description">Chiffres clés et requêtes heure par heure sur 24 heures.</string>
+    <string name="stats_last_24h">Dernières 24 h</string>
+    <string name="stats_card_title">Dernières 24 heures</string>
+    <string name="stats_top_blocked">Le plus bloqué : %1$s (%2$s)</string>
+    <string name="stats_activity_title">Activité 24 h</string>
+    <string name="stats_queries_label">requêtes DNS</string>
+    <string name="stats_label_queries">requêtes</string>
+    <string name="stats_label_blocked">bloquées</string>
+    <string name="stats_label_ratio">part bloquée</string>
+    <plurals name="stats_blocked_line">
+        <item quantity="one">%1$s bloquée · %2$s</item>
+        <item quantity="many">%1$s bloquées · %2$s</item>
+        <item quantity="other">%1$s bloquées · %2$s</item>
+    </plurals>
+    <string name="stats_updated_at">Mis à jour à %1$s</string>
+    <string name="stats_offline_since">Hors ligne · données de %1$s</string>
+    <string name="stats_unreachable">Serveur injoignable.</string>
+    <string name="stats_refresh">Actualiser les statistiques</string>
+    <string name="stats_chart_empty">Aucune requête sur 24 h</string>
+    <string name="stats_chart_description">Requêtes par heure sur 24 heures ; pic de %1$s requêtes.</string>
+    <string name="stats_chart_description_at">Requêtes par heure sur 24 heures ; pic de %1$s requêtes à %2$s.</string>
+    <string name="stats_axis_start">il y a 24 h</string>
+    <string name="stats_axis_end">maintenant</string>
+    <!-- Valeurs d'exemple de l'aperçu dans le sélecteur de widgets. -->
+    <string name="stats_preview_total" translatable="false">12 345</string>
+    <string name="stats_preview_blocked" translatable="false">321</string>
+    <string name="stats_preview_ratio" translatable="false">2,6 %</string>
+    <string name="stats_preview_blocked_line" translatable="false">321 bloquées · 2,6 %</string>
+
     <!-- Tuile des réglages rapides -->
     <string name="tile_logged_out">Connexion requise</string>
     <string name="tile_updating">Mise à jour…</string>

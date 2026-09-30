@@ -4,6 +4,7 @@ import android.app.Application
 import io.github.anthodingo.onyxfilter.data.OnyxFilterApi
 import io.github.anthodingo.onyxfilter.data.OnyxFilterRepository
 import io.github.anthodingo.onyxfilter.data.SecureSessionStore
+import io.github.anthodingo.onyxfilter.widget.StatsWidgetController
 import io.github.anthodingo.onyxfilter.widget.WidgetController
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.combine
@@ -34,6 +35,11 @@ class OnyxFilterApplication : Application() {
         applicationScope.launch {
             combine(repository.authState, repository.protectionStatus, ::Pair).collect { (authState, status) ->
                 WidgetController.onRepositoryState(this@OnyxFilterApplication, authState, status)
+            }
+        }
+        applicationScope.launch {
+            combine(repository.authState, repository.stats, ::Pair).collect { (authState, stats) ->
+                StatsWidgetController.onRepositoryState(this@OnyxFilterApplication, authState, stats)
             }
         }
     }

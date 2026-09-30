@@ -1,16 +1,12 @@
 package io.github.anthodingo.onyxfilter.widget
 
 import android.app.AlarmManager
-import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.StringRes
-import io.github.anthodingo.onyxfilter.MainActivity
 import io.github.anthodingo.onyxfilter.R
 import io.github.anthodingo.onyxfilter.ui.formatReEnableTime
 import io.github.anthodingo.onyxfilter.ui.formatShortReEnableTime
@@ -60,7 +56,7 @@ internal object ProtectionWidgets {
         views.setViewVisibility(R.id.widget_sublabel, if (sublabel != null) View.VISIBLE else View.GONE)
 
         val command = model.toggleCommand
-        views.setOnClickPendingIntent(android.R.id.background, command?.let { commandIntent(context, it) } ?: openAppIntent(context))
+        views.setOnClickPendingIntent(android.R.id.background, command?.let { widgetCommandIntent(context, it) } ?: openAppIntent(context))
         views.setContentDescription(android.R.id.background, context.getString(toggleDescription(command)))
         return views
     }
@@ -91,13 +87,13 @@ internal object ProtectionWidgets {
 
         // En-tête : réessaie si l'état est inconnu ou douteux, ouvre l'application sinon.
         val headerCommand = if (model.loggedIn && (status == null || model.hasError)) WidgetCommand.Refresh else null
-        views.setOnClickPendingIntent(R.id.widget_header, headerCommand?.let { commandIntent(context, it) } ?: openAppIntent(context))
+        views.setOnClickPendingIntent(R.id.widget_header, headerCommand?.let { widgetCommandIntent(context, it) } ?: openAppIntent(context))
 
         val primary = model.primaryCommand
         views.setViewVisibility(R.id.widget_actions, if (primary != null) View.VISIBLE else View.GONE)
         if (primary != null) {
             QuickDisableButtons.zip(WidgetCommand.QuickDisable).forEach { (viewId, command) ->
-                views.setOnClickPendingIntent(viewId, commandIntent(context, command))
+                views.setOnClickPendingIntent(viewId, widgetCommandIntent(context, command))
             }
             val disables = primary is WidgetCommand.Disable
             views.setTextViewText(R.id.widget_action_primary, context.getString(if (disables) R.string.widget_disable else R.string.widget_enable))
@@ -106,7 +102,7 @@ internal object ProtectionWidgets {
                 "setBackgroundResource",
                 if (disables) R.drawable.widget_button_disable else R.drawable.widget_button_enable,
             )
-            views.setOnClickPendingIntent(R.id.widget_action_primary, commandIntent(context, primary))
+            views.setOnClickPendingIntent(R.id.widget_action_primary, widgetCommandIntent(context, primary))
         }
         return views
     }
@@ -131,35 +127,18 @@ internal object ProtectionWidgets {
     }
 
     @StringRes
-    private fun toggleDescription(command: WidgetCommand?): Int = when (command) {
+    private fun toggleDescription(command: WidgetCommand.Protection?): Int = when (command) {
         null -> R.string.widget_cd_open
         WidgetCommand.Refresh -> R.string.widget_cd_refresh
         WidgetCommand.Enable -> R.string.widget_cd_toggle_enable
         is WidgetCommand.Disable -> R.string.widget_cd_toggle_disable
     }
 
-    private fun commandIntent(context: Context, command: WidgetCommand): PendingIntent {
-        val intent = Intent(context, WidgetActionReceiver::class.java)
-            .setAction(WidgetActionReceiver.ACTION_COMMAND)
-            // Une donnée distincte par commande : sans elle, tous les boutons partageraient le même
-            // PendingIntent (les extras ne comptent pas dans leur comparaison).
-            .setData(Uri.parse("onyxfilter-widget:${command.encode()}"))
-            .putExtra(WidgetActionReceiver.EXTRA_COMMAND, command.encode())
-        return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    }
-
-    private fun openAppIntent(context: Context): PendingIntent {
-        // Même intention que l'icône du lanceur : ramène l'application au premier plan si elle est ouverte.
-        val intent = Intent.makeMainActivity(ComponentName(context, MainActivity::class.java))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    }
-
     // Relit l'état juste après la fin d'une désactivation temporaire, pour que les widgets n'affichent
     // pas "désactivée" alors que le serveur a déjà réactivé la protection.
     private fun scheduleReEnableRefresh(context: Context, model: WidgetModel, now: Instant, hasWidgets: Boolean) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
-        val refresh = commandIntent(context, WidgetCommand.Refresh)
+        val refresh = widgetCommandIntent(context, WidgetCommand.Refresh)
         val until = model.status?.disabledUntil
 
         // Échéance déjà passée (état en cache, serveur injoignable...) : pas d'alarme, sinon elle se

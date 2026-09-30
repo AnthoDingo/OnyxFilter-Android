@@ -31,7 +31,11 @@ class WidgetActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_COMMAND) return
         val command = WidgetCommand.decode(intent.getStringExtra(EXTRA_COMMAND)) ?: return
-        finishWhenDone(WidgetController.execute(context, command))
+        val job = when (command) {
+            is WidgetCommand.Protection -> WidgetController.execute(context, command)
+            WidgetCommand.RefreshStats -> StatsWidgetController.refresh(context, showProgress = true)
+        }
+        finishWhenDone(job)
     }
 
     companion object {

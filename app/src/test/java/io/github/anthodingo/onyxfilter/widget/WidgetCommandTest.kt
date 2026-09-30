@@ -12,6 +12,7 @@ class WidgetCommandTest {
         val commands = listOf(
             WidgetCommand.Refresh,
             WidgetCommand.Enable,
+            WidgetCommand.RefreshStats,
             WidgetCommand.Disable(DisableDuration.Indefinitely),
             WidgetCommand.Disable(DisableDuration.UntilTomorrow),
             WidgetCommand.Disable(DisableDuration.Fixed(600)),

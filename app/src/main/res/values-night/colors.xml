@@ -7,4 +7,6 @@
     <color name="widget_button_disable">#FFB91C1C</color>
     <color name="widget_text_primary">#FFE2E8F0</color>
     <color name="widget_text_secondary">#FFCBD5E1</color>
+    <color name="widget_chart_series">#FF3987E5</color>
+    <color name="widget_chart_grid">#FF334155</color>
 </resources>

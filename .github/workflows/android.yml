@@ -24,7 +24,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       - name: Tests unitaires, lint et APK de débogage
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+        # --warning-mode all : les usages dépréciés (à corriger avant Gradle 10) apparaissent dans le journal.
+        run: ./gradlew --no-daemon --warning-mode all testDebugUnitTest lintDebug assembleDebug
 
       - name: Rapports
         if: always()

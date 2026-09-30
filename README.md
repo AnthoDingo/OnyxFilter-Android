@@ -28,6 +28,19 @@ téléphone est éteint, et toujours réactivée au redémarrage d'OnyxFilter.
   *Demain* pour une désactivation temporaire, et bouton *Désactiver* / *Activer*. Toucher l'en-tête
   ouvre l'application.
 
+### Widgets de statistiques
+
+- **Statistiques OnyxFilter** (2 × 2) : nombre de requêtes DNS des dernières 24 heures, nombre et
+  part des requêtes bloquées, heure de la dernière mise à jour.
+- **Activité OnyxFilter** (4 × 2, redimensionnable) : requêtes, bloquées et part bloquée, et
+  histogramme des requêtes heure par heure sur 24 heures (dont l'heure de pointe est lue par
+  TalkBack).
+
+Mis à jour toutes les 30 minutes, à chaque lecture faite par l'application (au plus une fois par
+minute quand l'écran de la protection est ouvert, qui affiche aussi ces chiffres) et d'un toucher sur
+leur bouton d'actualisation. Serveur injoignable : ils gardent les derniers chiffres et l'heure de leur
+lecture. Toucher le widget ouvre l'application.
+
 ### Tuile des réglages rapides
 
 Une tuile **OnyxFilter** s'ajoute au volet des réglages rapides (à côté de la lampe torche, du Wi-Fi…) :

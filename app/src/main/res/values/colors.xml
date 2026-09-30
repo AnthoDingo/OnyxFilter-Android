@@ -13,4 +13,8 @@
     <color name="widget_button_disable">#FFDC2626</color>
     <color name="widget_text_primary">#FF0F172A</color>
     <color name="widget_text_secondary">#FF475569</color>
+    <!-- Histogramme : série 1 de la palette de référence, validée (bande de luminance, chroma,
+         contraste ≥ 3:1) sur widget_neutral_container, en clair comme en sombre. -->
+    <color name="widget_chart_series">#FF2A78D6</color>
+    <color name="widget_chart_grid">#FFCBD5E1</color>
 </resources>

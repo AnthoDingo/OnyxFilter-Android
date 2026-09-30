@@ -68,6 +68,30 @@
                 android:resource="@xml/widget_control_info" />
         </receiver>
 
+        <receiver
+            android:name=".widget.StatsSummaryWidget"
+            android:exported="false"
+            android:label="@string/stats_summary_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/stats_summary_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.StatsActivityWidget"
+            android:exported="false"
+            android:label="@string/stats_activity_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/stats_activity_info" />
+        </receiver>
+
         <!-- Actions des widgets : intentions explicites de l'application uniquement. -->
         <receiver
             android:name=".widget.WidgetActionReceiver"

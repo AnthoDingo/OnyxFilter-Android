@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -58,8 +60,10 @@ import io.github.anthodingo.onyxfilter.R
 import io.github.anthodingo.onyxfilter.data.ServerUrl
 import io.github.anthodingo.onyxfilter.data.Session
 import io.github.anthodingo.onyxfilter.domain.DisableDuration
+import io.github.anthodingo.onyxfilter.domain.DnsStats
 import io.github.anthodingo.onyxfilter.domain.DurationParts
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
+import io.github.anthodingo.onyxfilter.domain.StatsFormat
 import io.github.anthodingo.onyxfilter.ui.UiText
 import io.github.anthodingo.onyxfilter.ui.asString
 import io.github.anthodingo.onyxfilter.ui.formatReEnableTime
@@ -83,8 +87,11 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
         viewModel.actionErrors.collect { message -> snackbarHostState.showSnackbar(message.asString(context)) }
     }
 
+    val stats by viewModel.stats.collectAsStateWithLifecycle()
+
     ProtectionContent(
         state = state,
+        stats = stats,
         now = rememberNow(ticking = state.status?.isDisabledTemporarily == true),
         serverLabel = ServerUrl.displayName(session.serverUrl),
         snackbarHostState = snackbarHostState,
@@ -124,6 +131,7 @@ private fun rememberNow(ticking: Boolean): Instant {
 @Composable
 private fun ProtectionContent(
     state: ProtectionUiState,
+    stats: DnsStats?,
     now: Instant,
     serverLabel: String,
     snackbarHostState: SnackbarHostState,
@@ -197,6 +205,7 @@ private fun ProtectionContent(
                         StatusCard(status, now, contentModifier)
                         PrimaryAction(status, state.isUpdating, onEnable, onDisable, contentModifier)
                         DisableOptions(status, state.isUpdating, onDisable, onCustomDuration, contentModifier)
+                        stats?.let { StatsCard(it, contentModifier) }
                         Text(
                             text = stringResource(R.string.protection_restart_note),
                             modifier = contentModifier,
@@ -388,6 +397,46 @@ private fun StaleStatusBanner(error: UiText, modifier: Modifier = Modifier) {
     }
 }
 
+// Chiffres clés des dernières 24 heures : trois valeurs, pas de graphique (voir les widgets pour
+// l'activité heure par heure).
+@Composable
+private fun StatsCard(stats: DnsStats, modifier: Modifier = Modifier) {
+    val locale = LocalConfiguration.current.locales[0]
+    Card(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(stringResource(R.string.stats_card_title), style = MaterialTheme.typography.titleMedium)
+            Row(modifier = Modifier.fillMaxWidth()) {
+                StatValue(StatsFormat.count(stats.totalQueries, locale), stringResource(R.string.stats_label_queries), Modifier.weight(1f))
+                StatValue(StatsFormat.count(stats.blockedQueries, locale), stringResource(R.string.stats_label_blocked), Modifier.weight(1f))
+                StatValue(StatsFormat.percent(stats.blockedRatio, locale), stringResource(R.string.stats_label_ratio), Modifier.weight(1f))
+            }
+            stats.topBlockedDomain?.let { top ->
+                Text(
+                    text = stringResource(R.string.stats_top_blocked, top.name, StatsFormat.count(top.count, locale)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatValue(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(value, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
+    }
+}
+
 @Composable
 private fun LoadError(error: UiText, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Column(
@@ -424,6 +473,7 @@ private fun ProtectionEnabledPreview() {
     OnyxFilterTheme {
         ProtectionContent(
             state = ProtectionUiState(status = ProtectionStatus(enabled = true, disabledUntil = null), isRefreshing = false),
+            stats = PreviewStats,
             now = Instant.now(),
             serverLabel = "onyxfilter.maison:7037",
             snackbarHostState = remember { SnackbarHostState() },
@@ -447,6 +497,7 @@ private fun ProtectionDisabledPreview() {
                 isRefreshing = false,
                 error = UiText.Resource(R.string.error_timeout),
             ),
+            stats = null,
             now = now,
             serverLabel = "onyxfilter.maison:7037",
             snackbarHostState = remember { SnackbarHostState() },
@@ -458,3 +509,13 @@ private fun ProtectionDisabledPreview() {
         )
     }
 }
+
+private val PreviewStats = DnsStats(
+    totalQueries = 12_345,
+    blockedQueries = 321,
+    blockedRatio = 0.026,
+    averageProcessingTimeMs = 4,
+    topBlockedDomain = DnsStats.RankedItem("ads.example", 87),
+    hourlyQueries = List(24) { (it * 37L) % 500 },
+    lastHourStart = null,
+)

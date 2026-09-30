@@ -27,7 +27,7 @@ data class WidgetModel(
      * Action du widget "bascule" : l'inverse de l'état affiché, ou une actualisation si cet état est
      * inconnu ou douteux ; `null` pour ouvrir l'application (connexion requise).
      */
-    val toggleCommand: WidgetCommand?
+    val toggleCommand: WidgetCommand.Protection?
         get() = when {
             !loggedIn -> null
             status == null || hasError -> WidgetCommand.Refresh
@@ -36,7 +36,7 @@ data class WidgetModel(
         }
 
     /** Action du bouton principal du widget "contrôle" (désactiver ou réactiver). */
-    val primaryCommand: WidgetCommand?
+    val primaryCommand: WidgetCommand.Protection?
         get() = when {
             !loggedIn || status == null -> null
             status.enabled -> WidgetCommand.Disable(DisableDuration.Indefinitely)
@@ -46,15 +46,22 @@ data class WidgetModel(
 
 /** Action déclenchée depuis un widget, transmise au [WidgetActionReceiver] sous forme de texte. */
 sealed interface WidgetCommand {
-    data object Refresh : WidgetCommand
+    /** Actions sur la protection, exécutées par [WidgetController]. */
+    sealed interface Protection : WidgetCommand
 
-    data object Enable : WidgetCommand
+    data object Refresh : Protection
 
-    data class Disable(val duration: DisableDuration) : WidgetCommand
+    data object Enable : Protection
+
+    data class Disable(val duration: DisableDuration) : Protection
+
+    /** Relecture des statistiques, exécutée par [StatsWidgetController]. */
+    data object RefreshStats : WidgetCommand
 
     fun encode(): String = when (this) {
         Refresh -> REFRESH
         Enable -> ENABLE
+        RefreshStats -> REFRESH_STATS
         is Disable -> when (duration) {
             DisableDuration.Indefinitely -> "$DISABLE/$INDEFINITELY"
             DisableDuration.UntilTomorrow -> "$DISABLE/$TOMORROW"
@@ -65,6 +72,7 @@ sealed interface WidgetCommand {
     companion object {
         private const val REFRESH = "refresh"
         private const val ENABLE = "enable"
+        private const val REFRESH_STATS = "stats/refresh"
         private const val DISABLE = "disable"
         private const val INDEFINITELY = "indefinitely"
         private const val TOMORROW = "tomorrow"
@@ -81,6 +89,7 @@ sealed interface WidgetCommand {
             if (value == null) return null
             if (value == REFRESH) return Refresh
             if (value == ENABLE) return Enable
+            if (value == REFRESH_STATS) return RefreshStats
             if (!value.startsWith("$DISABLE/")) return null
 
             val duration = when (val argument = value.removePrefix("$DISABLE/")) {

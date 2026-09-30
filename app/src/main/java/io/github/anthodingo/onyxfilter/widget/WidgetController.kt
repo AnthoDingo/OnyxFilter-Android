@@ -67,7 +67,7 @@ internal object WidgetController {
     }
 
     /** Action demandée depuis un widget ou la tuile ; le [Job] se termine une fois le résultat affiché. */
-    fun execute(context: Context, command: WidgetCommand, showProgress: Boolean = true): Job {
+    fun execute(context: Context, command: WidgetCommand.Protection, showProgress: Boolean = true): Job {
         val application = context.applicationContext as OnyxFilterApplication
 
         // Widgets et tuile sont actualisés en même temps : une seule lecture suffit.
@@ -85,7 +85,7 @@ internal object WidgetController {
         ProtectionWidgets.render(context, currentModel(context))
     }
 
-    private suspend fun run(application: OnyxFilterApplication, command: WidgetCommand, showProgress: Boolean) {
+    private suspend fun run(application: OnyxFilterApplication, command: WidgetCommand.Protection, showProgress: Boolean) {
         val repository = application.repository
         repository.restoreSession()
         if (repository.authState.value !is AuthState.LoggedIn) {
