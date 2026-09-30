@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="fr">
+    <string name="app_name" translatable="false">OnyxFilter</string>
+
+    <!-- Connexion -->
+    <string name="login_subtitle">Connectez-vous à votre instance OnyxFilter pour gérer le filtrage DNS.</string>
+    <string name="login_session_expired">Votre session a expiré. Reconnectez-vous pour continuer.</string>
+    <string name="login_server_url">Adresse du serveur</string>
+    <string name="login_server_url_placeholder" translatable="false">https://onyxfilter.maison:7037</string>
+    <string name="login_server_url_help">Adresse de l\'interface web d\'OnyxFilter.</string>
+    <string name="login_server_url_cleartext">Connexion non chiffrée (HTTP) : à n\'utiliser que sur votre réseau local.</string>
+    <string name="login_username">Nom d\'utilisateur</string>
+    <string name="login_password">Mot de passe</string>
+    <string name="login_show_password">Afficher le mot de passe</string>
+    <string name="login_hide_password">Masquer le mot de passe</string>
+    <string name="login_submit">Se connecter</string>
+    <string name="login_in_progress">Connexion…</string>
+
+    <!-- Protection -->
+    <string name="protection_server_label" translatable="false">%1$s · %2$s</string>
+    <string name="protection_enabled">Protection activée</string>
+    <string name="protection_disabled">Protection désactivée</string>
+    <string name="protection_enabled_description">Le filtrage DNS est actif.</string>
+    <string name="protection_disabled_indefinitely_description">Le filtrage DNS est suspendu jusqu\'à sa réactivation.</string>
+    <string name="protection_disabled_until_description">Réactivation automatique %1$s (dans %2$s).</string>
+    <string name="protection_re_enabling">Réactivation en cours…</string>
+    <string name="protection_re_enable_today">à %1$s</string>
+    <string name="protection_re_enable_tomorrow">demain à %1$s</string>
+    <string name="protection_re_enable_later">le %1$s à %2$s</string>
+    <string name="protection_restart_note">La protection est toujours réactivée au redémarrage du serveur OnyxFilter.</string>
+    <string name="protection_stale_status">Dernier état connu, actualisation impossible : %1$s</string>
+    <string name="protection_load_failed">Impossible de lire l\'état de la protection</string>
+
+    <string name="disable_options_title">Désactiver temporairement</string>
+    <string name="disable_options_title_disabled">Modifier la durée de désactivation</string>
+    <string name="disable_until_tomorrow">Jusqu\'à demain</string>
+    <string name="disable_custom">Durée personnalisée…</string>
+    <string name="disable_indefinitely">Sans limite de durée</string>
+    <string name="disable_indefinitely_description">Jusqu\'à la réactivation manuelle</string>
+    <plurals name="disable_for_seconds">
+        <item quantity="one">Pendant %d seconde</item>
+        <item quantity="many">Pendant %d secondes</item>
+        <item quantity="other">Pendant %d secondes</item>
+    </plurals>
+    <plurals name="disable_for_minutes">
+        <item quantity="one">Pendant %d minute</item>
+        <item quantity="many">Pendant %d minutes</item>
+        <item quantity="other">Pendant %d minutes</item>
+    </plurals>
+    <plurals name="disable_for_hours">
+        <item quantity="one">Pendant %d heure</item>
+        <item quantity="many">Pendant %d heures</item>
+        <item quantity="other">Pendant %d heures</item>
+    </plurals>
+
+    <string name="duration_days_hours">%1$d j %2$d h</string>
+    <string name="duration_hours_minutes">%1$d h %2$02d min</string>
+    <string name="duration_minutes_seconds">%1$d min %2$02d s</string>
+    <string name="duration_seconds">%1$d s</string>
+
+    <string name="custom_duration_title">Durée personnalisée</string>
+    <string name="custom_duration_hours">Heures</string>
+    <string name="custom_duration_minutes">Minutes</string>
+    <string name="custom_duration_limits">Entre 1 minute et 30 jours.</string>
+    <string name="custom_duration_confirm">Désactiver</string>
+
+    <!-- Actions -->
+    <string name="action_enable">Activer la protection</string>
+    <string name="action_disable">Désactiver la protection</string>
+    <string name="action_refresh">Actualiser</string>
+    <string name="action_more">Plus d\'options</string>
+    <string name="action_logout">Se déconnecter</string>
+    <string name="action_retry">Réessayer</string>
+    <string name="action_cancel">Annuler</string>
+
+    <!-- Erreurs -->
+    <string name="error_invalid_server_url">Adresse de serveur invalide.</string>
+    <string name="error_invalid_credentials">Nom d\'utilisateur ou mot de passe incorrect.</string>
+    <string name="error_session_expired">Votre session a expiré. Reconnectez-vous.</string>
+    <string name="error_api_not_available">Ce serveur ne propose pas l\'API de l\'application mobile. Vérifiez l\'adresse, et que votre instance OnyxFilter est à jour.</string>
+    <string name="error_http">Erreur du serveur (HTTP %1$d).</string>
+    <string name="error_http_with_detail">Erreur du serveur (HTTP %1$d) : %2$s</string>
+    <string name="error_unknown_host">Serveur introuvable. Vérifiez l\'adresse.</string>
+    <string name="error_certificate">Le certificat du serveur n\'est pas reconnu. Pour un certificat auto-signé, installez son autorité de certification dans les paramètres de sécurité d\'Android.</string>
+    <string name="error_timeout">Le serveur met trop de temps à répondre.</string>
+    <string name="error_connection_refused">Connexion refusée. Vérifiez l\'adresse et le port du serveur.</string>
+    <string name="error_network">Impossible de joindre le serveur. Vérifiez votre connexion.</string>
+    <string name="error_invalid_response">Réponse inattendue : cette adresse ne semble pas être celle d\'une instance OnyxFilter.</string>
+</resources>

@@ -1,0 +1,218 @@
+diff --git a/src/OnyxFilter/Api/MobileApiEndpoints.cs b/src/OnyxFilter/Api/MobileApiEndpoints.cs
+new file mode 100644
+index 0000000..6e40527
+--- /dev/null
++++ b/src/OnyxFilter/Api/MobileApiEndpoints.cs
+@@ -0,0 +1,174 @@
++using System;
++using System.Security.Claims;
++using System.Threading.Tasks;
++using Microsoft.AspNetCore.Authentication;
++using Microsoft.AspNetCore.Authentication.BearerToken;
++using Microsoft.AspNetCore.Builder;
++using Microsoft.AspNetCore.Http;
++using Microsoft.AspNetCore.Http.HttpResults;
++using Microsoft.AspNetCore.Identity;
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.AspNetCore.Routing;
++using Microsoft.Extensions.DependencyInjection;
++using Microsoft.Extensions.Options;
++using OnyxFilter.Models;
++using OnyxFilter.Services.DnsForwarding;
++using SignInResult = Microsoft.AspNetCore.Identity.SignInResult;
++
++namespace OnyxFilter.Api;
++
++// API REST de l'application mobile OnyxFilter (dépôt OnyxFilter-Android), sous /api :
++//   POST /api/auth/login    : { username, password } -> jetons (accès + rafraîchissement)
++//   POST /api/auth/refresh  : { refreshToken }       -> nouveaux jetons
++//   GET  /api/protection    : état de la bascule "Protection" du tableau de bord
++//   PUT  /api/protection    : { enabled, durationSeconds? } -> nouvel état
++// Authentification par jeton porteur ("Authorization: Bearer ...", schéma IdentityConstants.BearerScheme)
++// plutôt que par le cookie de l'interface web : pas de redirection vers /login ni d'antiforgery à gérer
++// côté application. Mêmes comptes et même mot de passe que l'interface web.
++public static class MobileApiEndpoints
++{
++    // Borne haute d'une désactivation temporaire : DnsProtectionState programme la réactivation avec un
++    // System.Threading.Timer, dont l'échéance ne peut pas dépasser ~49 jours.
++    private static readonly TimeSpan MaxDisableDuration = TimeSpan.FromDays(30);
++
++    public static RouteGroupBuilder MapMobileApi(this IEndpointRouteBuilder endpoints)
++    {
++        // Les réponses d'erreur de l'API restent sans corps HTML : UseStatusCodePagesWithReExecute
++        // (Program.cs) ne s'applique qu'aux pages de l'interface web.
++        RouteGroupBuilder api = endpoints.MapGroup("/api")
++            .WithMetadata(new SkipStatusCodePagesAttribute());
++
++        RouteGroupBuilder auth = api.MapGroup("/auth")
++            .AllowAnonymous();
++
++        auth.MapPost("/login", LoginAsync);
++        auth.MapPost("/refresh", RefreshAsync);
++
++        RouteGroupBuilder protection = api.MapGroup("/protection")
++            .RequireAuthorization(policy => policy
++                .AddAuthenticationSchemes(IdentityConstants.BearerScheme)
++                .RequireAuthenticatedUser());
++
++        protection.MapGet("", GetProtection);
++        protection.MapPut("", SetProtection);
++
++        return api;
++    }
++
++    // Même vérification que la page /login (PasswordSignInAsync, sans verrouillage de compte), mais
++    // avec le schéma porteur : le gestionnaire BearerToken écrit lui-même la réponse JSON
++    // (AccessTokenResponse : tokenType, accessToken, expiresIn, refreshToken).
++    private static async Task<Results<EmptyHttpResult, ProblemHttpResult>> LoginAsync(
++        [FromBody] MobileLoginRequest request,
++        [FromServices] SignInManager<ApplicationUser> signInManager)
++    {
++        if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
++        {
++            return TypedResults.Problem("Le nom d'utilisateur et le mot de passe sont requis.", statusCode: StatusCodes.Status400BadRequest);
++        }
++
++        signInManager.AuthenticationScheme = IdentityConstants.BearerScheme;
++
++        SignInResult result = await signInManager.PasswordSignInAsync(request.Username, request.Password, isPersistent: false, lockoutOnFailure: false);
++
++        if (result.IsLockedOut)
++        {
++            return TypedResults.Problem("Ce compte est temporairement verrouillé.", statusCode: StatusCodes.Status401Unauthorized);
++        }
++
++        if (!result.Succeeded)
++        {
++            return TypedResults.Problem("Identifiants invalides.", statusCode: StatusCodes.Status401Unauthorized);
++        }
++
++        return TypedResults.Empty;
++    }
++
++    // Reprend le fonctionnement de /refresh de MapIdentityApi : le jeton de rafraîchissement est rejeté
++    // s'il a expiré ou si le "security stamp" de l'utilisateur a changé depuis (mot de passe modifié via
++    // "--reset" ou /account/manage, etc.). Unauthorized explicite (et non Challenge) : le schéma par
++    // défaut de l'application est le cookie de l'interface web, dont le challenge redirige vers /login.
++    private static async Task<Results<SignInHttpResult, UnauthorizedHttpResult>> RefreshAsync(
++        [FromBody] MobileRefreshRequest request,
++        [FromServices] SignInManager<ApplicationUser> signInManager,
++        [FromServices] IOptionsMonitor<BearerTokenOptions> bearerTokenOptions)
++    {
++        if (string.IsNullOrEmpty(request.RefreshToken))
++        {
++            return TypedResults.Unauthorized();
++        }
++
++        ISecureDataFormat<AuthenticationTicket> refreshTokenProtector = bearerTokenOptions.Get(IdentityConstants.BearerScheme).RefreshTokenProtector;
++        AuthenticationTicket? refreshTicket = refreshTokenProtector.Unprotect(request.RefreshToken);
++
++        if (refreshTicket?.Properties.ExpiresUtc is not DateTimeOffset expiresUtc ||
++            DateTimeOffset.UtcNow >= expiresUtc ||
++            await signInManager.ValidateSecurityStampAsync(refreshTicket.Principal) is not ApplicationUser user)
++        {
++            return TypedResults.Unauthorized();
++        }
++
++        ClaimsPrincipal principal = await signInManager.CreateUserPrincipalAsync(user);
++        return TypedResults.SignIn(principal, authenticationScheme: IdentityConstants.BearerScheme);
++    }
++
++    private static Ok<ProtectionStateResponse> GetProtection([FromServices] IDnsProtectionState protectionState)
++    {
++        return TypedResults.Ok(CreateResponse(protectionState));
++    }
++
++    // enabled = true             : réactive le filtrage (annule toute réactivation automatique programmée).
++    // enabled = false            : désactive le filtrage sans échéance (comme le bouton principal du tableau
++    //                              de bord ; la protection est de toute façon réactivée au redémarrage).
++    // enabled = false + duration : désactive le filtrage pendant "durationSeconds" secondes. Une durée
++    //                              relative (et non une date) évite tout décalage d'horloge entre le
++    //                              téléphone et le serveur.
++    private static Results<Ok<ProtectionStateResponse>, ProblemHttpResult> SetProtection(
++        [FromBody] ProtectionUpdateRequest request,
++        [FromServices] IDnsProtectionState protectionState)
++    {
++        if (request.Enabled)
++        {
++            protectionState.Enable();
++        }
++        else if (request.DurationSeconds is long durationSeconds)
++        {
++            if (durationSeconds <= 0 || durationSeconds > MaxDisableDuration.TotalSeconds)
++            {
++                return TypedResults.Problem(
++                    $"La durée doit être comprise entre 1 et {(long)MaxDisableDuration.TotalSeconds} secondes.",
++                    statusCode: StatusCodes.Status400BadRequest);
++            }
++
++            protectionState.DisableUntil(DateTime.UtcNow.AddSeconds(durationSeconds));
++        }
++        else
++        {
++            protectionState.Disable();
++        }
++
++        return TypedResults.Ok(CreateResponse(protectionState));
++    }
++
++    private static ProtectionStateResponse CreateResponse(IDnsProtectionState protectionState)
++    {
++        bool isEnabled = protectionState.IsEnabled;
++        DateTime? disabledUntilUtc = isEnabled ? null : protectionState.DisabledUntilUtc;
++
++        // Durée restante calculée côté serveur, pour que l'application affiche un compte à rebours exact
++        // même si l'horloge du téléphone n'est pas synchronisée avec celle du serveur.
++        long? remainingSeconds = disabledUntilUtc is DateTime until
++            ? Math.Max(0, (long)Math.Ceiling((until - DateTime.UtcNow).TotalSeconds))
++            : null;
++
++        return new ProtectionStateResponse(isEnabled, disabledUntilUtc, remainingSeconds);
++    }
++
++    public sealed record MobileLoginRequest(string? Username, string? Password);
++
++    public sealed record MobileRefreshRequest(string? RefreshToken);
++
++    public sealed record ProtectionUpdateRequest(bool Enabled, long? DurationSeconds);
++
++    public sealed record ProtectionStateResponse(bool Enabled, DateTime? DisabledUntilUtc, long? RemainingSeconds);
++}
+diff --git a/src/OnyxFilter/Program.cs b/src/OnyxFilter/Program.cs
+index 6ad9a8b..0f78e1f 100644
+--- a/src/OnyxFilter/Program.cs
++++ b/src/OnyxFilter/Program.cs
+@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
+ using Microsoft.Extensions.Configuration;
+ using Microsoft.Extensions.DependencyInjection;
+ using Microsoft.Extensions.Hosting;
++using OnyxFilter.Api;
+ using OnyxFilter.Components;
+ using OnyxFilter.Components.Account;
+ using OnyxFilter.DbContexts;
+@@ -46,11 +47,14 @@ public class Program
+             options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+ 
+         // Add Authentication (ASP.NET Core Identity, avec support natif des passkeys .NET 10)
++        // Le schéma porteur (jetons) n'est utilisé que par l'API de l'application mobile (/api, voir
++        // MobileApiEndpoints) : l'interface web reste authentifiée par cookie.
+         builder.Services.AddAuthentication(options =>
+             {
+                 options.DefaultScheme = IdentityConstants.ApplicationScheme;
+                 options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+             })
++            .AddBearerToken(IdentityConstants.BearerScheme)
+             .AddIdentityCookies();
+ 
+         builder.Services.AddIdentityCore<ApplicationUser>(options =>
+@@ -211,6 +215,10 @@ public class Program
+         // port 53 et le DNS-over-TLS (filtres, cache, amont, statistiques).
+         app.MapDnsOverHttps();
+ 
++        // API REST de l'application mobile OnyxFilter (/api) : connexion par jeton et bascule
++        // "Protection" du tableau de bord (voir MobileApiEndpoints).
++        app.MapMobileApi();
++
+         ApplyMigrations(app);
+         EnsureDefaultAdminAccountAsync(app).GetAwaiter().GetResult();
+ 

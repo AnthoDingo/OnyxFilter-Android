@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bouclier de ic_shield_check, centré dans la zone sûre (66 dp) de l'icône adaptative (108 dp). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="1.25"
+        android:scaleY="1.25"
+        android:translateX="24"
+        android:translateY="24">
+        <path
+            android:fillAlpha="0.2"
+            android:fillColor="#22C55E"
+            android:pathData="M24,4L6,11v13c0,10.5 7.7,20.3 18,22.9C35.3,44.3 42,34.5 42,24V11L24,4z"
+            android:strokeWidth="2.4"
+            android:strokeColor="#22C55E"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M16,24l5.5,5.5L32,19"
+            android:strokeWidth="3"
+            android:strokeColor="#22C55E"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>

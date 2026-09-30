@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    OnyxFilter est auto-hébergé : l'instance peut n'être joignable qu'en HTTP sur le réseau local, ou en
+    HTTPS avec un certificat émis par une autorité privée. HTTP est donc autorisé (l'écran de connexion
+    le signale), et les autorités installées par l'utilisateur sont acceptées en plus de celles du système.
+-->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" tools:ignore="AcceptsUserCertificates" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
