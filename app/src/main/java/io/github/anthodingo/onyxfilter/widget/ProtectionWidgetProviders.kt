@@ -17,7 +17,7 @@ abstract class ProtectionWidgetProvider : AppWidgetProvider() {
 
     // Ajout d'un widget, actualisation périodique (updatePeriodMillis) ou redémarrage du téléphone.
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        WidgetController.refresh(context, goAsync())
+        finishWhenDone(WidgetController.refresh(context))
     }
 
     override fun onDisabled(context: Context) {
@@ -31,7 +31,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_COMMAND) return
         val command = WidgetCommand.decode(intent.getStringExtra(EXTRA_COMMAND)) ?: return
-        WidgetController.execute(context, command, goAsync())
+        finishWhenDone(WidgetController.execute(context, command))
     }
 
     companion object {

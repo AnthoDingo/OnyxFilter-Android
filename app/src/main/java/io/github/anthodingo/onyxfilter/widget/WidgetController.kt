@@ -2,28 +2,48 @@ package io.github.anthodingo.onyxfilter.widget
 
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.os.SystemClock
 import io.github.anthodingo.onyxfilter.OnyxFilterApplication
 import io.github.anthodingo.onyxfilter.data.AuthState
 import io.github.anthodingo.onyxfilter.data.OnyxFilterException
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * État des widgets et exécution de leurs actions. Tout se passe sur le thread principal : les appels
+ * État partagé des raccourcis hors de l'application (widgets de l'écran d'accueil et tuile des
+ * réglages rapides) et exécution de leurs actions. Tout se passe sur le thread principal : les appels
  * au serveur sont suspendus, pas bloquants.
  */
 internal object WidgetController {
 
-    // Un BroadcastReceiver (goAsync) doit se terminer en quelques secondes : au-delà, le widget
-    // affiche "serveur injoignable" et l'appel HTTP est annulé.
+    // Un BroadcastReceiver (goAsync) doit se terminer en quelques secondes : au-delà, les raccourcis
+    // affichent "serveur injoignable" et l'appel HTTP est annulé.
     private const val TIMEOUT_MILLIS = 9_000L
 
+    // Ouvrir le volet des réglages rapides relit l'état, au plus une fois par intervalle.
+    private const val REFRESH_THROTTLE_MILLIS = 30_000L
+
     private val scope = MainScope()
-    private var model: WidgetModel? = null
+    private val _state = MutableStateFlow<WidgetModel?>(null)
     private var refreshJob: Job? = null
+    private var lastRefreshElapsed: Long? = null
+
+    /** État courant (dernier état connu au démarrage, conservé par [WidgetStatusCache]). */
+    fun state(context: Context): StateFlow<WidgetModel?> {
+        currentModel(context)
+        return _state.asStateFlow()
+    }
+
+    fun currentModel(context: Context): WidgetModel =
+        _state.value ?: WidgetStatusCache(context).load()
+            .let { cached -> WidgetModel(loggedIn = cached != null, status = cached) }
+            .also { _state.value = it }
 
     /** Changement de session ou nouvel état lu par l'application (écran de la protection). */
     fun onRepositoryState(context: Context, authState: AuthState, status: ProtectionStatus?) {
@@ -37,33 +57,27 @@ internal object WidgetController {
     }
 
     /** Actualisation périodique ou ajout d'un widget : sans indicateur de progression. */
-    fun refresh(context: Context, pendingResult: BroadcastReceiver.PendingResult) {
-        execute(context, WidgetCommand.Refresh, pendingResult, showProgress = false)
+    fun refresh(context: Context): Job = execute(context, WidgetCommand.Refresh, showProgress = false)
+
+    /** Comme [refresh], sauf si l'état a été lu il y a moins de [REFRESH_THROTTLE_MILLIS]. */
+    fun refreshIfStale(context: Context) {
+        val last = lastRefreshElapsed
+        if (last != null && SystemClock.elapsedRealtime() - last < REFRESH_THROTTLE_MILLIS) return
+        refresh(context)
     }
 
-    /** Action demandée depuis un widget. [pendingResult] est terminé une fois le résultat affiché. */
-    fun execute(
-        context: Context,
-        command: WidgetCommand,
-        pendingResult: BroadcastReceiver.PendingResult,
-        showProgress: Boolean = true,
-    ) {
+    /** Action demandée depuis un widget ou la tuile ; le [Job] se termine une fois le résultat affiché. */
+    fun execute(context: Context, command: WidgetCommand, showProgress: Boolean = true): Job {
         val application = context.applicationContext as OnyxFilterApplication
 
-        // Les deux types de widget sont actualisés en même temps : une seule lecture suffit.
-        if (command == WidgetCommand.Refresh && refreshJob?.isActive == true) {
-            pendingResult.finish()
-            return
+        // Widgets et tuile sont actualisés en même temps : une seule lecture suffit.
+        if (command == WidgetCommand.Refresh) {
+            refreshJob?.takeIf { it.isActive }?.let { return it }
         }
 
-        val job = scope.launch {
-            try {
-                run(application, command, showProgress)
-            } finally {
-                pendingResult.finish()
-            }
-        }
+        val job = scope.launch { run(application, command, showProgress) }
         if (command == WidgetCommand.Refresh) refreshJob = job
+        return job
     }
 
     /** Le dernier widget d'un type a été retiré : l'alarme de réactivation n'est peut-être plus utile. */
@@ -99,22 +113,23 @@ internal object WidgetController {
         }
 
         val current = currentModel(application)
-        show(
-            application,
-            if (status != null) {
-                current.copy(loggedIn = true, status = status, isUpdating = false, hasError = false)
-            } else {
-                current.copy(isUpdating = false, hasError = true)
-            },
-        )
+        if (status != null) {
+            lastRefreshElapsed = SystemClock.elapsedRealtime()
+            show(application, current.copy(loggedIn = true, status = status, isUpdating = false, hasError = false))
+        } else {
+            show(application, current.copy(isUpdating = false, hasError = true))
+        }
     }
 
-    private fun currentModel(context: Context): WidgetModel =
-        model ?: WidgetStatusCache(context).load().let { cached -> WidgetModel(loggedIn = cached != null, status = cached) }
-
     private fun show(context: Context, newModel: WidgetModel) {
-        model = newModel
+        _state.value = newModel
         WidgetStatusCache(context).save(newModel.status.takeIf { newModel.loggedIn })
         ProtectionWidgets.render(context, newModel)
     }
+}
+
+/** Garde le processus en vie (goAsync) jusqu'à la fin de [job]. */
+internal fun BroadcastReceiver.finishWhenDone(job: Job) {
+    val pendingResult = goAsync()
+    job.invokeOnCompletion { pendingResult.finish() }
 }

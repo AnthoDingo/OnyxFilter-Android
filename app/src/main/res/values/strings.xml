@@ -91,6 +91,11 @@
     <string name="widget_cd_refresh">Touchez pour actualiser l\'état de la protection.</string>
     <string name="widget_cd_open">Touchez pour ouvrir OnyxFilter.</string>
 
+    <!-- Tuile des réglages rapides -->
+    <string name="tile_logged_out">Connexion requise</string>
+    <string name="tile_updating">Mise à jour…</string>
+    <string name="tile_disabled_until">Jusqu\'à %1$s</string>
+
     <!-- Actions -->
     <string name="action_enable">Activer la protection</string>
     <string name="action_disable">Désactiver la protection</string>

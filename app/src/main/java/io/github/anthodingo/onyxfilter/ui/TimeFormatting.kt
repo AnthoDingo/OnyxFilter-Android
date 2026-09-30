@@ -28,3 +28,13 @@ fun formatReEnableTime(context: Context, until: Instant, now: Instant): String {
         RelativeDay.Later -> context.getString(R.string.protection_re_enable_later, formatShortDay(context, until), time)
     }
 }
+
+/** Version courte, pour les widgets et la tuile : "14:32", "demain" ou "mer. 7 oct.". */
+fun formatShortReEnableTime(context: Context, until: Instant, now: Instant): String {
+    val zone = ZoneId.systemDefault()
+    return when (relativeDay(until.atZone(zone), now.atZone(zone))) {
+        RelativeDay.Today -> formatTime(context, until)
+        RelativeDay.Tomorrow -> context.getString(R.string.widget_tomorrow)
+        RelativeDay.Later -> formatShortDay(context, until)
+    }
+}

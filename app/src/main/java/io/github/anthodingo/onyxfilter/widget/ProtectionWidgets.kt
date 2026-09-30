@@ -12,13 +12,9 @@ import android.widget.RemoteViews
 import androidx.annotation.StringRes
 import io.github.anthodingo.onyxfilter.MainActivity
 import io.github.anthodingo.onyxfilter.R
-import io.github.anthodingo.onyxfilter.domain.RelativeDay
-import io.github.anthodingo.onyxfilter.domain.relativeDay
 import io.github.anthodingo.onyxfilter.ui.formatReEnableTime
-import io.github.anthodingo.onyxfilter.ui.formatShortDay
-import io.github.anthodingo.onyxfilter.ui.formatTime
+import io.github.anthodingo.onyxfilter.ui.formatShortReEnableTime
 import java.time.Instant
-import java.time.ZoneId
 
 /** Affichage des widgets de l'écran d'accueil à partir d'un [WidgetModel]. */
 internal object ProtectionWidgets {
@@ -59,7 +55,7 @@ internal object ProtectionWidgets {
         views.setTextViewText(R.id.widget_label, context.getString(label))
 
         val until = status?.disabledUntil
-        val sublabel = if (model.loggedIn && !model.hasError && until != null) shortReEnableTime(context, until, now) else null
+        val sublabel = if (model.loggedIn && !model.hasError && until != null) formatShortReEnableTime(context, until, now) else null
         views.setTextViewText(R.id.widget_sublabel, sublabel.orEmpty())
         views.setViewVisibility(R.id.widget_sublabel, if (sublabel != null) View.VISIBLE else View.GONE)
 
@@ -132,16 +128,6 @@ internal object ProtectionWidgets {
         views.setImageViewResource(R.id.widget_icon, icon)
         views.setViewVisibility(R.id.widget_icon, if (model.isUpdating) View.INVISIBLE else View.VISIBLE)
         views.setViewVisibility(R.id.widget_progress, if (model.isUpdating) View.VISIBLE else View.GONE)
-    }
-
-    // Version courte pour le widget 1 × 1 : "14:32", "demain" ou "mer. 7 oct.".
-    private fun shortReEnableTime(context: Context, until: Instant, now: Instant): String {
-        val zone = ZoneId.systemDefault()
-        return when (relativeDay(until.atZone(zone), now.atZone(zone))) {
-            RelativeDay.Today -> formatTime(context, until)
-            RelativeDay.Tomorrow -> context.getString(R.string.widget_tomorrow)
-            RelativeDay.Later -> formatShortDay(context, until)
-        }
     }
 
     @StringRes

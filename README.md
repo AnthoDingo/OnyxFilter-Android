@@ -28,9 +28,18 @@ téléphone est éteint, et toujours réactivée au redémarrage d'OnyxFilter.
   *Demain* pour une désactivation temporaire, et bouton *Désactiver* / *Activer*. Toucher l'en-tête
   ouvre l'application.
 
-Les widgets se mettent à jour après chacune de leurs actions, à chaque changement fait dans
+### Tuile des réglages rapides
+
+Une tuile **OnyxFilter** s'ajoute au volet des réglages rapides (à côté de la lampe torche, du Wi-Fi…) :
+allumée quand le filtrage est actif, elle le désactive sans limite de durée ou le réactive d'un
+toucher. Sous son nom (Android 10+) : *Activée*, *Désactivée*, *Jusqu'à 14:32* pendant une
+désactivation temporaire, ou *Hors ligne*. Un appui long ouvre l'application, pour choisir une durée.
+Depuis l'écran de verrouillage, le téléphone doit d'abord être déverrouillé.
+
+Les widgets et la tuile se mettent à jour après chacune de leurs actions, à chaque changement fait dans
 l'application, juste après la fin d'une désactivation temporaire, et toutes les 30 minutes (pour
-refléter les changements faits depuis l'interface web). Serveur injoignable : ils gardent le dernier
+refléter les changements faits depuis l'interface web) ; la tuile relit aussi l'état à l'ouverture du
+volet (au plus une fois toutes les 30 secondes). Serveur injoignable : ils gardent le dernier
 état connu et l'indiquent (« Hors ligne ») ; un toucher relance la lecture. Sans session, ils ouvrent
 l'écran de connexion.
 
@@ -115,6 +124,7 @@ app/src/main/java/io/github/anthodingo/onyxfilter/
 ├── data/     client HTTP (OkHttp), modèles JSON, session chiffrée, dépôt (rafraîchissement des jetons)
 ├── domain/   durées de désactivation, état de la protection, calculs d'affichage
 ├── ui/       écrans Compose (connexion, protection), ViewModels, thème
-└── widget/   widgets de l'écran d'accueil (RemoteViews) et exécution de leurs actions
+├── tile/     tuile des réglages rapides
+└── widget/   widgets de l'écran d'accueil (RemoteViews) et état partagé avec la tuile
 server/       patch de l'API mobile pour le serveur OnyxFilter
 ```
