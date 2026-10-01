@@ -45,10 +45,10 @@ class WidgetModelTest {
     }
 
     @Test
-    fun `after an error the toggle refreshes, but the control buttons stay available`() {
+    fun `after an error the toggle and the control buttons still act on the last known state`() {
         val model = WidgetModel(loggedIn = true, status = enabled, hasError = true)
 
-        assertEquals(WidgetCommand.Refresh, model.toggleCommand)
+        assertEquals(WidgetCommand.Disable(DisableDuration.Indefinitely), model.toggleCommand)
         assertEquals(WidgetCommand.Disable(DisableDuration.Indefinitely), model.primaryCommand)
     }
 }
