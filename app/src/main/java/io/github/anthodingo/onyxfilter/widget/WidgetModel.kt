@@ -24,13 +24,15 @@ data class WidgetModel(
         }
 
     /**
-     * Action du widget "bascule" : l'inverse de l'état affiché, ou une actualisation si cet état est
-     * inconnu ou douteux ; `null` pour ouvrir l'application (connexion requise).
+     * Action du widget "bascule" et de la tuile : l'inverse de l'état affiché, ou une actualisation si
+     * cet état est inconnu ; `null` pour ouvrir l'application (connexion requise). Après une erreur, le
+     * toucher bascule quand même : l'action fixe l'état voulu (sans effet s'il l'est déjà), alors qu'une
+     * simple actualisation laissait croire que la tuile ne réagissait pas.
      */
     val toggleCommand: WidgetCommand.Protection?
         get() = when {
             !loggedIn -> null
-            status == null || hasError -> WidgetCommand.Refresh
+            status == null -> WidgetCommand.Refresh
             status.enabled -> WidgetCommand.Disable(DisableDuration.Indefinitely)
             else -> WidgetCommand.Enable
         }

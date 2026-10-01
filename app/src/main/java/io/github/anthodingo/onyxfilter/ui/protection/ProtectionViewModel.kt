@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -55,6 +56,16 @@ class ProtectionViewModel(
 
     private var pollingJob: Job? = null
     private var lastStatsLoadMillis: Long? = null
+
+    init {
+        // Actions faites depuis la tuile ou un widget : l'écran suit l'état partagé par le dépôt
+        // sans attendre la prochaine actualisation.
+        viewModelScope.launch {
+            repository.protectionStatus.filterNotNull().collect { status ->
+                _uiState.update { it.copy(status = status, isRefreshing = false, error = null) }
+            }
+        }
+    }
 
     /**
      * Actualise l'état régulièrement tant que l'écran est visible, pour refléter les changements faits
