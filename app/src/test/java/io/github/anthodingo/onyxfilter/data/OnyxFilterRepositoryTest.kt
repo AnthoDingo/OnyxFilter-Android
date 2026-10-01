@@ -183,6 +183,7 @@ class OnyxFilterRepositoryTest {
         assertEquals(1234L, stats.totalQueries)
         assertEquals("ads.example", stats.topBlockedDomain?.name)
         assertEquals(listOf(10L, 20L), stats.hourlyQueries)
+        assertEquals(listOf(1L, 2L), stats.hourlyBlocked)
         assertEquals(Instant.parse("2026-09-30T13:00:00Z"), stats.lastHourStart)
         assertEquals(stats, repository.stats.value)
 

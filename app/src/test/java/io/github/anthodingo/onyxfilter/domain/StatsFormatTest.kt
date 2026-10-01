@@ -34,6 +34,23 @@ class StatsFormatTest {
     }
 
     @Test
+    fun `blocked share is stacked at the bottom of each column`() {
+        val columns = ColumnChart.layout(
+            values = listOf(10, 20, 4),
+            blocked = listOf(5, 0, 9),
+            width = 300f,
+            height = 100f,
+            gap = 2f,
+            maxWidth = 24f,
+            minHeight = 2f,
+        )
+
+        assertEquals(75f, columns[0].blockedTop) // Moitié bloquée d'une colonne de 50 px.
+        assertEquals(100f, columns[1].blockedTop) // Rien de bloqué.
+        assertEquals(columns[2].top, columns[2].blockedTop) // Bloquées plafonnées au total.
+    }
+
+    @Test
     fun `narrow slots keep a gap and small values stay visible`() {
         val columns = ColumnChart.layout(listOf(1000, 1), width = 20f, height = 50f, gap = 2f, maxWidth = 24f, minHeight = 2f)
 

@@ -30,6 +30,7 @@ internal class StatsCache(context: Context) {
             averageProcessingTimeMs = cached.averageProcessingTimeMs,
             topBlockedDomain = cached.topBlockedName?.let { DnsStats.RankedItem(it, cached.topBlockedCount) },
             hourlyQueries = cached.hourlyQueries,
+            hourlyBlocked = cached.hourlyBlocked,
             lastHourStart = cached.lastHourStartMillis?.let(Instant::ofEpochMilli),
         )
         return stats to Instant.ofEpochMilli(cached.fetchedAtMillis)
@@ -48,6 +49,7 @@ internal class StatsCache(context: Context) {
                     topBlockedName = stats.topBlockedDomain?.name,
                     topBlockedCount = stats.topBlockedDomain?.count ?: 0,
                     hourlyQueries = stats.hourlyQueries,
+                    hourlyBlocked = stats.hourlyBlocked,
                     lastHourStartMillis = stats.lastHourStart?.toEpochMilli(),
                     fetchedAtMillis = fetchedAt.toEpochMilli(),
                 )
@@ -65,6 +67,7 @@ internal class StatsCache(context: Context) {
         val topBlockedName: String? = null,
         val topBlockedCount: Long = 0,
         val hourlyQueries: List<Long> = emptyList(),
+        val hourlyBlocked: List<Long> = emptyList(),
         val lastHourStartMillis: Long? = null,
         val fetchedAtMillis: Long,
     )

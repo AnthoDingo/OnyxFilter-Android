@@ -11,7 +11,12 @@ import android.graphics.Paint
 import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
+import androidx.annotation.ColorRes
+import androidx.annotation.IdRes
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withClip
 import io.github.anthodingo.onyxfilter.R
+import io.github.anthodingo.onyxfilter.domain.Column
 import io.github.anthodingo.onyxfilter.domain.ColumnChart
 import io.github.anthodingo.onyxfilter.domain.DnsStats
 import io.github.anthodingo.onyxfilter.domain.StatsFormat
@@ -90,11 +95,16 @@ internal object StatsWidgets {
         views.setTextViewText(R.id.stats_ratio, StatsFormat.percent(stats.blockedRatio, locale))
 
         val hasTraffic = ColumnChart.peakIndex(stats.hourlyQueries) != null
-        views.setViewVisibility(R.id.stats_chart, if (hasTraffic) View.VISIBLE else View.INVISIBLE)
+        val chartVisibility = if (hasTraffic) View.VISIBLE else View.INVISIBLE
+        views.setViewVisibility(R.id.stats_chart, chartVisibility)
+        views.setViewVisibility(R.id.stats_chart_blocked, chartVisibility)
         views.setViewVisibility(R.id.stats_chart_empty, if (hasTraffic) View.GONE else View.VISIBLE)
         if (hasTraffic) {
-            views.setImageViewBitmap(R.id.stats_chart, chartBitmap(context, stats.hourlyQueries, widthDp - ACTIVITY_HORIZONTAL_PADDING_DP))
-            tintChart(context, views)
+            val (allowed, blocked) = chartBitmaps(context, stats, widthDp - ACTIVITY_HORIZONTAL_PADDING_DP)
+            views.setImageViewBitmap(R.id.stats_chart, allowed)
+            views.setImageViewBitmap(R.id.stats_chart_blocked, blocked)
+            tintChart(context, views, R.id.stats_chart, R.color.widget_chart_allowed)
+            tintChart(context, views, R.id.stats_chart_blocked, R.color.widget_chart_blocked)
             views.setContentDescription(R.id.stats_chart, chartDescription(context, stats))
         }
         return views
@@ -120,51 +130,64 @@ internal object StatsWidgets {
         views.setTextViewText(R.id.stats_status, status)
     }
 
-    // Colonnes blanches (masque) teintées par le widget : la couleur de la série suit le thème du
-    // lanceur sans redessiner l'image (Android 12+).
-    private fun chartBitmap(context: Context, hourly: List<Long>, widthDp: Int): Bitmap {
+    // Deux masques blancs superposés, teintés par le widget : colonnes entières (autorisées) et leur
+    // part bloquée, en bas. Les couleurs suivent le thème du lanceur sans redessiner l'image (Android 12+).
+    private fun chartBitmaps(context: Context, stats: DnsStats, widthDp: Int): Pair<Bitmap, Bitmap> {
         val density = context.resources.displayMetrics.density
         val width = (widthDp.coerceAtLeast(1) * density).roundToInt().coerceAtLeast(1)
         val height = (CHART_HEIGHT_DP * density).roundToInt()
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
+        val allowed = createBitmap(width, height)
+        val blocked = createBitmap(width, height)
+        val allowedCanvas = Canvas(allowed)
+        val blockedCanvas = Canvas(blocked)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
         val radius = COLUMN_RADIUS_DP * density
 
         ColumnChart.layout(
-            values = hourly,
+            values = stats.hourlyQueries,
+            blocked = stats.hourlyBlocked,
             width = width.toFloat(),
             height = height.toFloat(),
             gap = COLUMN_GAP_DP * density,
             maxWidth = COLUMN_MAX_WIDTH_DP * density,
             minHeight = COLUMN_MIN_HEIGHT_DP * density,
         ).forEach { column ->
-            val r = minOf(radius, (column.right - column.left) / 2, column.bottom - column.top)
-            // Extrémité arrondie, base carrée : rectangle arrondi, puis sa moitié basse redessinée à angles droits.
-            canvas.drawRoundRect(column.left, column.top, column.right, column.bottom, r, r, paint)
-            canvas.drawRect(column.left, maxOf(column.top, column.bottom - r), column.right, column.bottom, paint)
+            drawColumn(allowedCanvas, column, radius, paint)
+            // Même forme, limitée à la part bloquée : elle garde l'extrémité arrondie si tout est bloqué.
+            if (column.blockedTop < column.bottom) {
+                blockedCanvas.withClip(column.left, column.blockedTop, column.right, column.bottom) {
+                    drawColumn(this, column, radius, paint)
+                }
+            }
         }
-        return bitmap
+        return allowed to blocked
     }
 
-    private fun tintChart(context: Context, views: RemoteViews) {
+    // Extrémité arrondie, base carrée : rectangle arrondi, puis sa moitié basse redessinée à angles droits.
+    private fun drawColumn(canvas: Canvas, column: Column, radius: Float, paint: Paint) {
+        val r = minOf(radius, (column.right - column.left) / 2, column.bottom - column.top)
+        canvas.drawRoundRect(column.left, column.top, column.right, column.bottom, r, r, paint)
+        canvas.drawRect(column.left, maxOf(column.top, column.bottom - r), column.right, column.bottom, paint)
+    }
+
+    private fun tintChart(context: Context, views: RemoteViews, @IdRes viewId: Int, @ColorRes color: Int) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             views.setColorInt(
-                R.id.stats_chart,
+                viewId,
                 "setColorFilter",
-                seriesColor(context, night = false),
-                seriesColor(context, night = true),
+                themedColor(context, color, night = false),
+                themedColor(context, color, night = true),
             )
         } else {
-            views.setInt(R.id.stats_chart, "setColorFilter", context.getColor(R.color.widget_chart_series))
+            views.setInt(viewId, "setColorFilter", context.getColor(color))
         }
     }
 
-    private fun seriesColor(context: Context, night: Boolean): Int {
+    private fun themedColor(context: Context, @ColorRes color: Int, night: Boolean): Int {
         val configuration = Configuration(context.resources.configuration)
         configuration.uiMode = (configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
             (if (night) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO)
-        return context.createConfigurationContext(configuration).getColor(R.color.widget_chart_series)
+        return context.createConfigurationContext(configuration).getColor(color)
     }
 
     // Lecteur d'écran : l'image ne dit rien d'elle-même, le pic d'activité la résume.
