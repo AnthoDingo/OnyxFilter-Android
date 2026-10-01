@@ -13,6 +13,7 @@ import io.github.anthodingo.onyxfilter.OnyxFilterApplication
 import io.github.anthodingo.onyxfilter.R
 import io.github.anthodingo.onyxfilter.data.OnyxFilterException
 import io.github.anthodingo.onyxfilter.data.OnyxFilterRepository
+import io.github.anthodingo.onyxfilter.data.PairingLink
 import io.github.anthodingo.onyxfilter.data.ServerUrl
 import io.github.anthodingo.onyxfilter.ui.UiText
 import io.github.anthodingo.onyxfilter.ui.toUiText
@@ -36,8 +37,7 @@ data class LoginUiState(
         get() = !isLoading && serverUrl.isNotBlank() && apiToken.isNotBlank()
 
     companion object {
-        /** Préfixe des jetons créés par la page « Accès API » (ApiTokenService.TokenPrefix). */
-        const val TOKEN_PREFIX = "onyx_"
+        const val TOKEN_PREFIX = PairingLink.TOKEN_PREFIX
     }
 }
 
