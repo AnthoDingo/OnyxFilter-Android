@@ -1,0 +1,22 @@
+name: Idée
+description: Proposer une nouvelle fonctionnalité ou une amélioration.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Besoin
+      description: Le problème à résoudre ou ce que vous voudriez pouvoir faire.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposition
+      description: Comment cela pourrait fonctionner dans l'application.
+  - type: checkboxes
+    id: server
+    attributes:
+      label: Serveur
+      options:
+        - label: Nécessite aussi une évolution du serveur OnyxFilter

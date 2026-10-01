@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Serveur OnyxFilter
+    url: https://github.com/AnthoDingo/OnyxFilter/issues
+    about: Les problèmes du serveur ou de son interface web se signalent sur son dépôt.

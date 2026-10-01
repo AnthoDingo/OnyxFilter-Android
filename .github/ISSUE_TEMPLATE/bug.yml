@@ -1,0 +1,53 @@
+name: Bug
+description: Un comportement inattendu de l'application.
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Ce qui se passe, et ce qui était attendu.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes pour reproduire
+      placeholder: |
+        1. Ouvrir…
+        2. Appuyer sur…
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Où ?
+      multiple: true
+      options:
+        - Application
+        - Tuile des réglages rapides
+        - Widget
+        - Connexion (formulaire ou QR code)
+  - type: input
+    id: app-version
+    attributes:
+      label: Version de l'application
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Appareil et version d'Android
+      placeholder: Pixel 8, Android 16
+    validations:
+      required: true
+  - type: input
+    id: server-version
+    attributes:
+      label: Version du serveur OnyxFilter
+  - type: textarea
+    id: logs
+    attributes:
+      label: Captures d'écran ou journaux
+      description: Retirez tout jeton d'API (`onyx_…`) et toute adresse que vous ne souhaitez pas rendre publique.
