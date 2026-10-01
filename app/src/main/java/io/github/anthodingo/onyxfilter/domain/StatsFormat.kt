@@ -18,14 +18,18 @@ object StatsFormat {
     }
 }
 
-/** Colonne d'un histogramme, en pixels (origine en haut à gauche). */
-data class Column(val left: Float, val top: Float, val right: Float, val bottom: Float)
+/**
+ * Colonne d'un histogramme, en pixels (origine en haut à gauche). La part bloquée occupe le bas de la
+ * colonne, de [blockedTop] à [bottom] ([blockedTop] vaut [bottom] sans requête bloquée).
+ */
+data class Column(val left: Float, val top: Float, val right: Float, val bottom: Float, val blockedTop: Float = bottom)
 
 /**
  * Géométrie d'un histogramme en colonnes (une série) : colonnes de largeur égale, séparées par
  * [gap], au plus [maxWidth] de large, partant toutes de la ligne de base (bas de la zone). La plus
  * haute valeur occupe toute la hauteur ; une valeur non nulle garde au moins [minHeight], pour rester
- * visible à côté d'un pic. Une valeur nulle ne produit pas de colonne.
+ * visible à côté d'un pic. Une valeur nulle ne produit pas de colonne. [blocked] (aligné sur
+ * [values], facultatif) donne la part bloquée de chaque colonne, empilée en bas comme sur l'interface web.
  */
 object ColumnChart {
 
@@ -36,6 +40,7 @@ object ColumnChart {
         gap: Float,
         maxWidth: Float,
         minHeight: Float,
+        blocked: List<Long> = emptyList(),
     ): List<Column> {
         val max = values.maxOrNull() ?: return emptyList()
         if (max <= 0 || width <= 0f || height <= 0f) return emptyList()
@@ -46,11 +51,13 @@ object ColumnChart {
             if (value <= 0) return@mapIndexedNotNull null
             val columnHeight = (height * value / max).coerceIn(minHeight.coerceAtMost(height), height)
             val center = slot * index + slot / 2
+            val blockedShare = (blocked.getOrNull(index) ?: 0L).coerceIn(0, value).toFloat() / value
             Column(
                 left = center - columnWidth / 2,
                 top = height - columnHeight,
                 right = center + columnWidth / 2,
                 bottom = height,
+                blockedTop = height - columnHeight * blockedShare,
             )
         }
     }

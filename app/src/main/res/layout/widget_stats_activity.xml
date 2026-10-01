@@ -127,12 +127,20 @@
             android:layout_weight="1"
             android:minHeight="24dp">
 
-            <!-- Requêtes par heure (une série, sans légende : le titre la nomme). -->
+            <!-- Requêtes par heure : autorisées (vert), et bloquées (rouge) superposées en bas de
+                 chaque colonne, comme sur l'interface web. -->
             <ImageView
                 android:id="@+id/stats_chart"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:contentDescription="@string/stats_chart_empty"
+                android:scaleType="fitXY" />
+
+            <ImageView
+                android:id="@+id/stats_chart_blocked"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
                 android:scaleType="fitXY" />
 
             <TextView

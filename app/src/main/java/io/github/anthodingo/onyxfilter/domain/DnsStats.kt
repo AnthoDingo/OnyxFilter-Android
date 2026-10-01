@@ -16,6 +16,8 @@ data class DnsStats(
     val topBlockedDomain: RankedItem?,
     /** Requêtes par heure, de la plus ancienne à la plus récente (24 valeurs en général). */
     val hourlyQueries: List<Long>,
+    /** Requêtes bloquées par heure, alignées sur [hourlyQueries] (vide si inconnues). */
+    val hourlyBlocked: List<Long> = emptyList(),
     /** Début de la dernière heure de [hourlyQueries]. */
     val lastHourStart: Instant?,
 ) {
@@ -29,6 +31,7 @@ data class DnsStats(
             averageProcessingTimeMs = dto.averageProcessingTimeMs.coerceAtLeast(0),
             topBlockedDomain = dto.topBlockedDomains.firstOrNull()?.let { RankedItem(it.name, it.count) },
             hourlyQueries = dto.hourly.map { it.totalQueries.coerceAtLeast(0) },
+            hourlyBlocked = dto.hourly.map { it.blockedQueries.coerceIn(0, it.totalQueries.coerceAtLeast(0)) },
             lastHourStart = dto.hourly.lastOrNull()?.hourStart?.let(::parseApiInstant),
         )
     }
