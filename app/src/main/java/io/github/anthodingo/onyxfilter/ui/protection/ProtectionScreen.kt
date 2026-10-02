@@ -68,6 +68,9 @@ import io.github.anthodingo.onyxfilter.ui.UiText
 import io.github.anthodingo.onyxfilter.ui.asString
 import io.github.anthodingo.onyxfilter.ui.formatReEnableTime
 import io.github.anthodingo.onyxfilter.ui.theme.OnyxFilterTheme
+import io.github.anthodingo.onyxfilter.update.Obtainium
+import io.github.anthodingo.onyxfilter.update.installerPackageName
+import io.github.anthodingo.onyxfilter.update.openObtainium
 import kotlinx.coroutines.delay
 import java.time.Instant
 
@@ -88,6 +91,8 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
     }
 
     val stats by viewModel.stats.collectAsStateWithLifecycle()
+    // Inutile une fois l'application installée par Obtainium, qui la suit déjà.
+    val offerObtainium = remember { !Obtainium.isInstaller(context.installerPackageName()) }
 
     ProtectionContent(
         state = state,
@@ -99,6 +104,7 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
         onEnable = viewModel::enable,
         onDisable = viewModel::disable,
         onCustomDuration = { showCustomDuration = true },
+        onObtainium = if (offerObtainium) context::openObtainium else null,
         onLogout = viewModel::logout,
     )
 
@@ -139,6 +145,8 @@ private fun ProtectionContent(
     onEnable: () -> Unit,
     onDisable: (DisableDuration) -> Unit,
     onCustomDuration: () -> Unit,
+    /** Ajout à Obtainium pour les mises à jour ; `null` masque l'entrée du menu. */
+    onObtainium: (() -> Unit)?,
     onLogout: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -166,6 +174,16 @@ private fun ProtectionContent(
                             Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            if (onObtainium != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_obtainium)) },
+                                    leadingIcon = { Icon(painterResource(R.drawable.ic_system_update), contentDescription = null) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onObtainium()
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_logout)) },
                                 leadingIcon = { Icon(painterResource(R.drawable.ic_logout), contentDescription = null) },
@@ -481,6 +499,7 @@ private fun ProtectionEnabledPreview() {
             onEnable = {},
             onDisable = {},
             onCustomDuration = {},
+            onObtainium = {},
             onLogout = {},
         )
     }
@@ -505,6 +524,7 @@ private fun ProtectionDisabledPreview() {
             onEnable = {},
             onDisable = {},
             onCustomDuration = {},
+            onObtainium = {},
             onLogout = {},
         )
     }
