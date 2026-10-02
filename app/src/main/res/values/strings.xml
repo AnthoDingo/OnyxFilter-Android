@@ -18,7 +18,6 @@
     <string name="login_submit">Se connecter</string>
     <string name="login_in_progress">Connexion…</string>
     <string name="login_scan_qr">Scanner le QR code</string>
-    <string name="login_scan_permission_denied">Autorisez l\'accès à la caméra pour scanner le QR code, ou saisissez l\'adresse et le jeton.</string>
     <string name="login_scan_unavailable">Scanner indisponible sur cet appareil : saisissez l\'adresse et le jeton.</string>
 
     <string name="pairing_title">Connexion par QR code</string>

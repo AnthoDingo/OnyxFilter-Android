@@ -1,10 +1,6 @@
 package io.github.anthodingo.onyxfilter.ui.login
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -53,7 +49,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -65,23 +60,6 @@ import io.github.anthodingo.onyxfilter.ui.theme.OnyxFilterTheme
 @Composable
 fun LoginScreen(viewModel: LoginViewModel, tokenRejected: Boolean, onQrScanned: (String?) -> Unit) {
     val context = LocalContext.current
-    // Scanner de Play Services : le lien lu suit le flux onyxfilter://pair.
-    val startScan = {
-        val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-        GmsBarcodeScanning.getClient(context, options).startScan()
-            .addOnSuccessListener { onQrScanned(it.rawValue) }
-            .addOnFailureListener {
-                Toast.makeText(context, R.string.login_scan_unavailable, Toast.LENGTH_LONG).show()
-            }
-        Unit
-    }
-    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            startScan()
-        } else {
-            Toast.makeText(context, R.string.login_scan_permission_denied, Toast.LENGTH_LONG).show()
-        }
-    }
     LoginContent(
         state = viewModel.uiState,
         tokenRejected = tokenRejected,
@@ -89,10 +67,16 @@ fun LoginScreen(viewModel: LoginViewModel, tokenRejected: Boolean, onQrScanned: 
         onApiTokenChange = viewModel::onApiTokenChange,
         onSubmit = viewModel::login,
         onScanQr = {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                startScan()
-            } else {
-                cameraPermission.launch(Manifest.permission.CAMERA)
+            // Scanner de Play Services : pas de permission caméra, le lien suit le flux onyxfilter://pair.
+            val showUnavailable = { Toast.makeText(context, R.string.login_scan_unavailable, Toast.LENGTH_LONG).show() }
+            try {
+                val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
+                GmsBarcodeScanning.getClient(context, options).startScan()
+                    .addOnSuccessListener { onQrScanned(it.rawValue) }
+                    .addOnFailureListener { showUnavailable() }
+            } catch (e: RuntimeException) {
+                // La bibliothèque peut aussi échouer avant de rendre la tâche (voir proguard-rules.pro).
+                showUnavailable()
             }
         },
     )
