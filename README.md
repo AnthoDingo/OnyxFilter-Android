@@ -56,6 +56,41 @@ volet (au plus une fois toutes les 30 secondes). Serveur injoignable : ils garde
 état connu et l'indiquent (« Hors ligne ») ; un toucher relance la lecture. Sans session, ils ouvrent
 l'écran de connexion.
 
+## Installation et mises à jour
+
+Chaque version est publiée, sous forme d'APK signé, dans les
+[releases GitHub](https://github.com/AnthoDingo/OnyxFilter-Android/releases).
+
+### Mises à jour automatiques avec Obtainium
+
+[Obtainium](https://obtainium.imranr.dev) suit les releases GitHub de l'application et installe les nouvelles
+versions : plus besoin de télécharger chaque APK.
+
+<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.anthodingo.onyxfilter%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FAnthoDingo%2FOnyxFilter-Android%22%2C%22author%22%3A%22AnthoDingo%22%2C%22name%22%3A%22OnyxFilter%22%7D"><img src=".github/assets/badge_obtainium.png" alt="Obtenir avec Obtainium" height="48"></a>
+
+1. Installer Obtainium, depuis [ses releases GitHub](https://github.com/ImranR98/Obtainium/releases) ou F-Droid.
+2. Depuis le téléphone, toucher le badge ci-dessus, ou l'entrée *Mises à jour avec Obtainium* du menu ⋮
+   d'OnyxFilter ; ou, dans Obtainium, *Ajouter une appli* avec l'adresse
+   `https://github.com/AnthoDingo/OnyxFilter-Android`.
+3. Confirmer l'ajout.
+
+Une application déjà installée est reconnue, et ses mises à jour conservent la session. Obtainium vérifie les
+releases en arrière-plan et signale chaque nouvelle version ; sur Android 12 ou plus récent, une fois qu'il a
+installé une première version, il installe les suivantes sans confirmation. L'entrée du menu disparaît alors.
+
+### Vérifier l'APK
+
+Android n'installe une mise à jour que si elle est signée par le même certificat que l'application en place :
+un APK modifié est refusé. Cette vérification ne couvre pas la première installation : comparer l'empreinte
+SHA-256 du certificat de signature, également indiquée dans les notes des releases publiées après la v0.1.3.
+
+```
+82:89:16:44:30:0E:F9:8E:A2:DE:3B:48:00:0C:E6:65:6F:39:E7:6E:AF:FF:19:C1:48:F6:47:4F:A0:A7:EC:DD
+```
+
+Avec le SDK Android : `apksigner verify --print-certs OnyxFilter-vX.Y.Z.apk` ; sur le téléphone, avec
+[AppVerifier](https://github.com/soupslurpr/AppVerifier).
+
 ## Côté serveur : l'API HTTP d'OnyxFilter
 
 L'application utilise l'API HTTP d'OnyxFilter (`/api/v1`), sans modification du serveur. Elle
@@ -103,6 +138,11 @@ Outils : Android Gradle Plugin 9.4 (Kotlin intégré), Kotlin 2.4, Jetpack Compo
 Material 3. L'intégration continue (GitHub Actions, `.github/workflows/android.yml`) exécute les tests et
 le lint et publie l'APK de débogage en artefact de chaque exécution.
 
+Publier une version : pousser un tag `vX.Y.Z`. Le workflow `.github/workflows/release.yml` compile l'APK,
+le signe avec la clé conservée dans les secrets du dépôt, vérifie sa signature et son `versionCode`
+(X × 1 000 000 + Y × 1 000 + Z : Android refuse une mise à jour dont le `versionCode` est plus petit), puis
+crée la release.
+
 Version minimale : Android 8.0 (API 26) ; cible : Android 17 (API 37).
 
 ## Sécurité
@@ -120,5 +160,6 @@ app/src/main/java/io/github/anthodingo/onyxfilter/
 ├── domain/   durées de désactivation, état de la protection, statistiques, calculs d'affichage
 ├── ui/       écrans Compose (connexion, protection), ViewModels, thème
 ├── tile/     tuile des réglages rapides
+├── update/   ajout à Obtainium, pour les mises à jour
 └── widget/   widgets de l'écran d'accueil (RemoteViews) et état partagé avec la tuile
 ```

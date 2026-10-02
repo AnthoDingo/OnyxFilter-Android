@@ -32,8 +32,16 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
+          # Android refuse une mise à jour dont le versionCode est plus petit que celui de la version
+          # installée : il est dérivé du tag, vX.Y.Z → X × 1 000 000 + Y × 1 000 + Z (v0.1.4 → 1004).
+          if [[ ! "$VERSION" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]]; then
+            echo "::error::Tag ${TAG} : format attendu vX.Y.Z, chaque nombre inférieur à 1000."
+            exit 1
+          fi
+          VERSION_CODE=$(( 10#${BASH_REMATCH[1]} * 1000000 + 10#${BASH_REMATCH[2]} * 1000 + 10#${BASH_REMATCH[3]} ))
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
 
       - name: Decode Keystore
         env:
@@ -48,11 +56,35 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           VERSION_NAME: ${{ steps.get_version.outputs.version }}
+          VERSION_CODE: ${{ steps.get_version.outputs.version_code }}
         run: ./gradlew --no-daemon assembleRelease
 
       - name: Clean Keystore
         if: always()
         run: rm -f "${{ runner.temp }}/keystore.jks"
+
+      - name: Verify APK
+        id: verify
+        env:
+          VERSION_CODE: ${{ steps.get_version.outputs.version_code }}
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk)
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          # Échoue si l'APK n'est pas signé (secrets du keystore absents).
+          CERTS=$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK")
+          # « V2 Signer: certificate SHA-256 digest: … » (« Signer #1 certificate … » avant apksigner 37).
+          CERT_SHA256=$(grep -m 1 'certificate SHA-256 digest:' <<< "$CERTS" | grep -o '[0-9a-f]\{64\}' | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//')
+          if [[ -z "$CERT_SHA256" ]]; then
+            echo "::error::Empreinte du certificat introuvable : ${CERTS}"
+            exit 1
+          fi
+          BADGING=$("$BUILD_TOOLS/aapt2" dump badging "$APK")
+          if [[ "$BADGING" != *"versionCode='${VERSION_CODE}'"* ]]; then
+            echo "::error::versionCode ${VERSION_CODE} attendu : $(head -n 1 <<< "$BADGING")"
+            exit 1
+          fi
+          echo "versionCode ${VERSION_CODE}, certificat SHA-256 ${CERT_SHA256}"
+          echo "cert_sha256=${CERT_SHA256}" >> "$GITHUB_OUTPUT"
 
       - name: Prepare APK for Release
         run: |
@@ -68,8 +100,10 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CERT_SHA256: ${{ steps.verify.outputs.cert_sha256 }}
         run: |
           gh release create "${{ steps.get_version.outputs.tag }}" \
             --title "OnyxFilter ${{ steps.get_version.outputs.tag }}" \
+            --notes "Empreinte SHA-256 du certificat de signature : \`${CERT_SHA256}\`" \
             --generate-notes \
             release-artifacts/*.apk
