@@ -1,5 +1,6 @@
 package io.github.anthodingo.onyxfilter.ui.login
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -46,19 +49,32 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import io.github.anthodingo.onyxfilter.R
 import io.github.anthodingo.onyxfilter.ui.UiText
 import io.github.anthodingo.onyxfilter.ui.asString
 import io.github.anthodingo.onyxfilter.ui.theme.OnyxFilterTheme
 
 @Composable
-fun LoginScreen(viewModel: LoginViewModel, tokenRejected: Boolean) {
+fun LoginScreen(viewModel: LoginViewModel, tokenRejected: Boolean, onQrScanned: (String?) -> Unit) {
+    val context = LocalContext.current
     LoginContent(
         state = viewModel.uiState,
         tokenRejected = tokenRejected,
         onServerUrlChange = viewModel::onServerUrlChange,
         onApiTokenChange = viewModel::onApiTokenChange,
         onSubmit = viewModel::login,
+        onScanQr = {
+            // Scanner de Play Services : pas de permission caméra, le lien suit le flux onyxfilter://pair.
+            val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
+            GmsBarcodeScanning.getClient(context, options).startScan()
+                .addOnSuccessListener { onQrScanned(it.rawValue) }
+                .addOnFailureListener {
+                    Toast.makeText(context, R.string.login_scan_unavailable, Toast.LENGTH_LONG).show()
+                }
+        },
     )
 }
 
@@ -69,6 +85,7 @@ private fun LoginContent(
     onServerUrlChange: (String) -> Unit,
     onApiTokenChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    onScanQr: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     var tokenVisible by rememberSaveable { mutableStateOf(false) }
@@ -200,6 +217,14 @@ private fun LoginContent(
                     Text(stringResource(R.string.login_submit))
                 }
             }
+
+            OutlinedButton(
+                onClick = onScanQr,
+                enabled = !state.isLoading,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+            ) {
+                Text(stringResource(R.string.login_scan_qr))
+            }
         }
     }
 }
@@ -235,6 +260,7 @@ private fun LoginPreview() {
             onServerUrlChange = {},
             onApiTokenChange = {},
             onSubmit = {},
+            onScanQr = {},
         )
     }
 }

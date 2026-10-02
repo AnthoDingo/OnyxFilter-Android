@@ -34,6 +34,7 @@ fun OnyxFilterRoot(repository: OnyxFilterRepository, pairingViewModel: PairingVi
             is AuthState.LoggedOut -> LoginScreen(
                 viewModel = viewModel(factory = LoginViewModel.Factory),
                 tokenRejected = state.tokenRejected,
+                onQrScanned = pairingViewModel::onLink,
             )
 
             is AuthState.LoggedIn -> ProtectionScreen(
