@@ -31,6 +31,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.anthodingo.onyxfilter.R
 import io.github.anthodingo.onyxfilter.data.ServerUrl
 import io.github.anthodingo.onyxfilter.data.Session
+import io.github.anthodingo.onyxfilter.ui.access.BlockedClientsScreen
+import io.github.anthodingo.onyxfilter.ui.access.BlockedClientsViewModel
+import io.github.anthodingo.onyxfilter.ui.phoneip.PhoneIpScreen
+import io.github.anthodingo.onyxfilter.ui.phoneip.PhoneIpViewModel
 import io.github.anthodingo.onyxfilter.ui.protection.ProtectionScreen
 import io.github.anthodingo.onyxfilter.ui.protection.ProtectionViewModel
 import io.github.anthodingo.onyxfilter.ui.querylog.QueryLogScreen
@@ -41,6 +45,8 @@ import kotlinx.coroutines.launch
 enum class MainPage(@param:StringRes val label: Int, @param:DrawableRes val icon: Int) {
     Protection(R.string.nav_protection, R.drawable.ic_shield_outline),
     QueryLog(R.string.nav_query_log, R.drawable.ic_list),
+    BlockedClients(R.string.nav_blocked_clients, R.drawable.ic_block),
+    PhoneIp(R.string.nav_phone_ip, R.drawable.ic_public),
 }
 
 /** Pages de l'application une fois connecté, avec le menu de navigation sur la gauche. */
@@ -103,6 +109,16 @@ fun MainScreen(session: Session) {
 
             MainPage.QueryLog -> QueryLogScreen(
                 viewModel = viewModel(key = "querylog:${session.serverUrl}", factory = QueryLogViewModel.Factory),
+                onOpenMenu = openMenu,
+            )
+
+            MainPage.BlockedClients -> BlockedClientsScreen(
+                viewModel = viewModel(key = "blocked:${session.serverUrl}", factory = BlockedClientsViewModel.Factory),
+                onOpenMenu = openMenu,
+            )
+
+            MainPage.PhoneIp -> PhoneIpScreen(
+                viewModel = viewModel(key = "phoneip:${session.serverUrl}", factory = PhoneIpViewModel.Factory),
                 onOpenMenu = openMenu,
             )
         }

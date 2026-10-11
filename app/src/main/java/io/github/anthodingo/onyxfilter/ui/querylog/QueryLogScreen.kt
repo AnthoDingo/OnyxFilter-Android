@@ -376,7 +376,7 @@ private fun QueryLogPreview() {
                 entries = listOf(
                     QueryLogEntry(now, "ads.example", "A", "192.168.1.20", null, QueryLogReason.Filtered, true, "EasyList", null, 1),
                     QueryLogEntry(now.minusSeconds(4), "example.com", "AAAA", "192.168.1.21", null, QueryLogReason.Resolved, false, null, "1.1.1.1", 12),
-                    QueryLogEntry(now.minusSeconds(9), "onyxfilter.maison", "HTTPS", "203.0.113.7", "FR · Orange", QueryLogReason.Cached, false, null, null, 0),
+                    QueryLogEntry(now.minusSeconds(9), "onyxfilter.maison", "HTTPS", "203.0.113.7", "🇫🇷 FR · Orange", QueryLogReason.Cached, false, null, null, 0),
                 ),
                 hasMore = true,
                 isLoaded = true,

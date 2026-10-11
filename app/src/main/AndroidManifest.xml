@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Autorisation automatique de l'adresse du téléphone : vérification périodique conservée au redémarrage. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".OnyxFilterApplication"
@@ -36,6 +38,11 @@
                 <data android:scheme="onyxfilter" android:host="pair" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".phoneip.PhoneIpJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <service
             android:name=".tile.ProtectionTileService"

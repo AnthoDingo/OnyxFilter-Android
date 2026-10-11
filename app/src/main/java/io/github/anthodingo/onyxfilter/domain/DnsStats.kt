@@ -53,11 +53,18 @@ data class DnsStats(
     }
 }
 
-/** "FR · Orange", "FR" ou "Orange" ; `null` si rien n'est connu. */
+/** "🇫🇷 FR · Orange", "🇫🇷 FR" ou "Orange" ; `null` si rien n'est connu. */
 internal fun ClientLocationDto.describe(): String? =
-    listOfNotNull(country?.takeIf { it.isNotBlank() }, provider.takeIf { it.isNotBlank() })
+    listOfNotNull(country?.takeIf { it.isNotBlank() }?.let { flagOf(it)?.plus(" $it") ?: it }, provider.takeIf { it.isNotBlank() })
         .joinToString(" · ")
         .ifEmpty { null }
+
+/** Drapeau emoji d'un code pays ISO à deux lettres ("FR" → 🇫🇷), `null` pour tout autre code. */
+internal fun flagOf(countryCode: String): String? {
+    val code = countryCode.uppercase()
+    if (code.length != 2 || code.any { it !in 'A'..'Z' }) return null
+    return code.map { String(Character.toChars(0x1F1E6 + (it - 'A'))) }.joinToString("")
+}
 
 /**
  * Date de l'API ("2026-09-30T12:00:00+00:00", ou "…Z"), ou `null` si illisible. OffsetDateTime plutôt

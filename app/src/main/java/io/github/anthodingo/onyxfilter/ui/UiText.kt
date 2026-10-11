@@ -40,7 +40,10 @@ fun OnyxFilterException.toUiText(): UiText = when (this) {
     is OnyxFilterException.ApiNotAvailable -> UiText.Resource(R.string.error_api_not_available)
 
     is OnyxFilterException.Http ->
-        if (serverMessage != null) {
+        if (serverMessage != null && code == 409) {
+            // Opération refusée (client couvert par une autre règle...) : le serveur explique pourquoi.
+            UiText.Raw(serverMessage)
+        } else if (serverMessage != null) {
             UiText.Resource(R.string.error_http_with_detail, listOf(code, serverMessage))
         } else {
             UiText.Resource(R.string.error_http, listOf(code))

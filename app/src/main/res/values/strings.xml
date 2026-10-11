@@ -44,7 +44,6 @@
     <string name="protection_stale_status">Dernier état connu, actualisation impossible : %1$s</string>
     <string name="protection_load_failed">Impossible de lire l\'état de la protection</string>
 
-    <string name="disable_options_title">Désactiver temporairement</string>
     <string name="disable_options_title_disabled">Modifier la durée de désactivation</string>
     <string name="disable_until_tomorrow">Jusqu\'à demain</string>
     <string name="disable_custom">Durée personnalisée…</string>
@@ -85,11 +84,40 @@
     <string name="top_blocked_domains">Domaines les plus bloqués</string>
     <string name="top_clients">Clients les plus actifs</string>
     <string name="top_empty">Aucune donnée sur 24 h.</string>
+    <string name="client_block_title">Bloquer ce client ?</string>
+    <string name="client_block_message">%1$s ne pourra plus utiliser le DNS d\'OnyxFilter. Pour le débloquer, modifiez les listes d\'accès depuis Paramètres DNS dans l\'interface web.</string>
+    <string name="action_block">Bloquer</string>
+    <string name="client_blocked">%1$s est bloqué</string>
+    <string name="client_already_blocked">%1$s était déjà bloqué</string>
+    <string name="client_unblocked">%1$s est débloqué</string>
+    <string name="action_unblock">Débloquer</string>
+    <string name="blocked_clients_title">Clients bloqués</string>
+    <string name="blocked_clients_hint">Glissez un client vers la gauche ou la droite pour le débloquer.</string>
+    <string name="blocked_clients_empty">Aucun client bloqué.</string>
+    <string name="blocked_clients_allowlist_mode">Mode liste blanche : seuls les clients autorisés utilisent le DNS, cette liste n\'est pas appliquée. Gérez l\'accès depuis Paramètres DNS dans l\'interface web.</string>
+    <string name="blocked_clients_allowlist_hint">Clients refusés enregistrés, sans effet en mode liste blanche.</string>
+    <string name="blocked_clients_load_failed">Impossible de lire les clients bloqués</string>
+
+    <!-- Adresse publique du téléphone -->
+    <string name="phone_ip_title">Mon adresse IP</string>
+    <string name="phone_ip_label">Adresse IP publique du téléphone</string>
+    <string name="phone_ip_allowed_by_rule">Autorisée par la règle %1$s</string>
+    <string name="phone_ip_allowed">Autorisée à utiliser le DNS</string>
+    <string name="phone_ip_blocked_by_rule">Bloquée par la règle %1$s</string>
+    <string name="phone_ip_blocked">Bloquée : absente des clients autorisés</string>
+    <string name="phone_ip_auto_allow">Autoriser automatiquement</string>
+    <string name="phone_ip_auto_allow_description">Ajoute l\'adresse aux clients autorisés quand elle change (vérifiée environ toutes les 15 minutes).</string>
+    <string name="action_add">Ajouter</string>
+    <string name="phone_ip_added">%1$s est autorisée</string>
+    <string name="phone_ip_already_allowed">%1$s était déjà autorisée</string>
+    <string name="phone_ip_load_failed">Impossible de lire l\'adresse du téléphone</string>
 
     <!-- Menu de navigation -->
     <string name="nav_open">Ouvrir le menu</string>
     <string name="nav_protection">Protection</string>
     <string name="nav_query_log">Journal des requêtes</string>
+    <string name="nav_blocked_clients">Clients bloqués</string>
+    <string name="nav_phone_ip">Mon adresse IP</string>
 
     <!-- Journal des requêtes -->
     <string name="query_log_title">Journal des requêtes</string>

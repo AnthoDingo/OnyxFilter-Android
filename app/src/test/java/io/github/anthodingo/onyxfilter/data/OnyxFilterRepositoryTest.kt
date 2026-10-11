@@ -187,7 +187,7 @@ class OnyxFilterRepositoryTest {
         assertEquals(listOf(DnsStats.RankedItem("example.com", 300)), stats.topQueriedDomains)
         assertEquals(listOf(DnsStats.RankedItem("ads.example", 40)), stats.topBlockedDomains)
         assertEquals(
-            listOf(DnsStats.RankedItem("192.168.1.20", 900), DnsStats.RankedItem("203.0.113.7", 12, "FR · Orange")),
+            listOf(DnsStats.RankedItem("192.168.1.20", 900), DnsStats.RankedItem("203.0.113.7", 12, "🇫🇷 FR · Orange")),
             stats.topClients,
         )
         assertEquals(listOf(10L, 20L), stats.hourlyQueries)

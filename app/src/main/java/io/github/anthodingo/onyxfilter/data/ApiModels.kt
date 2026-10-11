@@ -24,6 +24,41 @@ data class ProtectionStateDto(
 @Serializable
 internal data class DisableProtectionRequest(val durationSeconds: Long? = null)
 
+/**
+ * Listes d'accès des clients (GET /api/v1/access). [mode] vaut "Blocklist" (tous les clients sauf les
+ * refusés) ou "Allowlist" (seulement les autorisés, les refusés sont alors ignorés).
+ */
+@Serializable
+data class AccessListsDto(val mode: String, val blockedClients: List<String> = emptyList())
+
+/**
+ * Adresse de l'appelant vue par le serveur et décision du DNS pour elle (GET /api/v1/access/me). [rule]
+ * et [list] désignent la règle en cause, `null` si aucune ne concerne l'adresse.
+ */
+@Serializable
+data class CallerAccessDto(
+    val ip: String,
+    val allowed: Boolean,
+    val rule: String? = null,
+    val list: String? = null,
+)
+
+/** Corps de POST /api/v1/access/block et /api/v1/access/allow : adresse IP ou sous-réseau CIDR. */
+@Serializable
+internal data class ClientAccessRequest(val client: String)
+
+/**
+ * Réponse de POST /api/v1/access/block et /api/v1/access/allow ; [changed] est faux si le client était
+ * déjà dans l'état demandé. Les listes sont celles en vigueur après la modification.
+ */
+@Serializable
+data class ClientAccessChangeDto(
+    val client: String,
+    val changed: Boolean,
+    val mode: String,
+    val blockedClients: List<String> = emptyList(),
+)
+
 /** Statistiques des dernières 24 heures (GET /api/v1/stats). */
 @Serializable
 data class StatsDto(

@@ -37,7 +37,7 @@ class QueryLogTest {
         )
 
         assertEquals(Instant.parse("2026-09-30T13:43:50Z"), entry.time)
-        assertEquals("FR · Orange", entry.clientDetail)
+        assertEquals("🇫🇷 FR · Orange", entry.clientDetail)
         assertNull(entry.reasonDetail)
         assertEquals("1.1.1.1", entry.upstream)
         assertEquals(0L, entry.processingTimeMs)
@@ -53,7 +53,9 @@ class QueryLogTest {
 
     @Test
     fun `client location shows what is known`() {
-        assertEquals("FR", ClientLocationDto(country = "FR").describe())
+        assertEquals("🇫🇷 FR", ClientLocationDto(country = "FR").describe())
+        assertEquals("🇪🇺", flagOf("eu"))
+        assertEquals("XYZ", ClientLocationDto(country = "XYZ").describe())
         assertEquals("Orange", ClientLocationDto(country = null, provider = "Orange").describe())
         assertNull(ClientLocationDto(country = "", provider = "").describe())
     }

@@ -1,7 +1,9 @@
 package io.github.anthodingo.onyxfilter.data
 
+import io.github.anthodingo.onyxfilter.domain.ClientAccess
 import io.github.anthodingo.onyxfilter.domain.DisableDuration
 import io.github.anthodingo.onyxfilter.domain.DnsStats
+import io.github.anthodingo.onyxfilter.domain.PhoneIpAccess
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
 import io.github.anthodingo.onyxfilter.domain.QueryLogPage
 import kotlinx.coroutines.CoroutineDispatcher
@@ -107,6 +109,42 @@ class OnyxFilterRepository(
         val seconds = duration.toSeconds(ZonedDateTime.now(clock))
         return protectionCall { session -> api.disableProtection(session.serverUrl, session.apiToken, seconds) }
     }
+
+    /**
+     * Bloque l'accès au DNS de [client] ; `false` s'il l'était déjà.
+     *
+     * @throws OnyxFilterException
+     */
+    suspend fun blockClient(client: String): Boolean =
+        authenticated { session -> api.blockClient(session.serverUrl, session.apiToken, client) }.second.changed
+
+    /**
+     * Adresse publique du téléphone, telle que la voit le serveur, et son accès au DNS.
+     *
+     * @throws OnyxFilterException
+     */
+    suspend fun getPhoneIpAccess(): PhoneIpAccess =
+        PhoneIpAccess.fromDto(authenticated { session -> api.getCallerAccess(session.serverUrl, session.apiToken) }.second)
+
+    /**
+     * Autorise [client] à utiliser le DNS ; `false` s'il l'était déjà.
+     *
+     * @throws OnyxFilterException
+     */
+    suspend fun allowClient(client: String): Boolean =
+        authenticated { session -> api.allowClient(session.serverUrl, session.apiToken, client) }.second.changed
+
+    /** @throws OnyxFilterException */
+    suspend fun getClientAccess(): ClientAccess =
+        ClientAccess.fromDto(authenticated { session -> api.getAccess(session.serverUrl, session.apiToken) }.second)
+
+    /**
+     * Rend l'accès au DNS à [client] ; renvoie les listes en vigueur ensuite.
+     *
+     * @throws OnyxFilterException
+     */
+    suspend fun unblockClient(client: String): ClientAccess =
+        ClientAccess.fromDto(authenticated { session -> api.allowClient(session.serverUrl, session.apiToken, client) }.second)
 
     /** @throws OnyxFilterException */
     suspend fun getStats(): DnsStats {

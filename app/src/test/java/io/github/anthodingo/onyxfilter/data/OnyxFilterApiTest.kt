@@ -90,6 +90,48 @@ class OnyxFilterApiTest {
     }
 
     @Test
+    fun `blockClient posts the client and reads whether it changed`() = runTest {
+        server.enqueue(json(200, """{"client":"203.0.113.7","changed":true,"added":[],"removed":[],"mode":"Blocklist"}"""))
+
+        val result = api.blockClient(baseUrl, TOKEN, "203.0.113.7")
+
+        assertTrue(result.changed)
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/api/v1/access/block", request.path)
+        assertEquals("203.0.113.7", jsonBody(request.body.readUtf8())["client"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `allowClient posts to its endpoint and returns the remaining blocked clients`() = runTest {
+        server.enqueue(json(200, """{"mode":"Blocklist","blockedClients":["198.51.100.0/24"],"allowedClients":[]}"""))
+        server.enqueue(json(200, """{"client":"203.0.113.7","changed":true,"mode":"Blocklist","blockedClients":[]}"""))
+
+        assertEquals(listOf("198.51.100.0/24"), api.getAccess(baseUrl, TOKEN).blockedClients)
+        val result = api.allowClient(baseUrl, TOKEN, "203.0.113.7")
+
+        assertTrue(result.changed)
+        assertEquals(emptyList<String>(), result.blockedClients)
+        assertEquals("/api/v1/access", server.takeRequest().path)
+        val allow = server.takeRequest()
+        assertEquals("POST", allow.method)
+        assertEquals("/api/v1/access/allow", allow.path)
+        assertEquals("203.0.113.7", jsonBody(allow.body.readUtf8())["client"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `getCallerAccess reads the address seen by the server`() = runTest {
+        server.enqueue(json(200, """{"ip":"203.0.113.7","allowed":false,"mode":"Allowlist","rule":null,"list":null}"""))
+
+        val access = api.getCallerAccess(baseUrl, TOKEN)
+
+        assertEquals("203.0.113.7", access.ip)
+        assertFalse(access.allowed)
+        assertNull(access.rule)
+        assertEquals("/api/v1/access/me", server.takeRequest().path)
+    }
+
+    @Test
     fun `getStats parses totals, top blocked domains and hourly series`() = runTest {
         server.enqueue(json(200, STATS))
 

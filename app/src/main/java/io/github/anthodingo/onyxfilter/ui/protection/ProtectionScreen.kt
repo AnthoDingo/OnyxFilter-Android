@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -34,11 +35,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -66,6 +69,7 @@ import io.github.anthodingo.onyxfilter.domain.DurationParts
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
 import io.github.anthodingo.onyxfilter.domain.StatsFormat
 import io.github.anthodingo.onyxfilter.ui.MenuButton
+import io.github.anthodingo.onyxfilter.ui.SwipeAction
 import io.github.anthodingo.onyxfilter.ui.UiText
 import io.github.anthodingo.onyxfilter.ui.asString
 import io.github.anthodingo.onyxfilter.ui.formatReEnableTime
@@ -83,6 +87,7 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel, onOpenMen
     val context = LocalContext.current
     var showCustomDuration by rememberSaveable { mutableStateOf(false) }
     var showTemporaryDisable by rememberSaveable { mutableStateOf(false) }
+    var clientToBlock by rememberSaveable { mutableStateOf<String?>(null) }
 
     LifecycleStartEffect(viewModel) {
         viewModel.startPolling()
@@ -90,7 +95,7 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel, onOpenMen
     }
 
     LaunchedEffect(viewModel) {
-        viewModel.actionErrors.collect { message -> snackbarHostState.showSnackbar(message.asString(context)) }
+        viewModel.messages.collect { message -> snackbarHostState.showSnackbar(message.asString(context)) }
     }
 
     val stats by viewModel.stats.collectAsStateWithLifecycle()
@@ -109,6 +114,7 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel, onOpenMen
         onDisable = viewModel::disable,
         onTemporaryDisable = { showTemporaryDisable = true },
         onCustomDuration = { showCustomDuration = true },
+        onBlockClient = { clientToBlock = it },
         onObtainium = if (offerObtainium) context::openObtainium else null,
         onLogout = viewModel::logout,
     )
@@ -134,6 +140,30 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel, onOpenMen
                 viewModel.disable(duration)
             },
             onDismiss = { showCustomDuration = false },
+        )
+    }
+
+    clientToBlock?.let { client ->
+        AlertDialog(
+            onDismissRequest = { clientToBlock = null },
+            icon = { Icon(painterResource(R.drawable.ic_block), contentDescription = null) },
+            title = { Text(stringResource(R.string.client_block_title)) },
+            text = { Text(stringResource(R.string.client_block_message, client)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        clientToBlock = null
+                        viewModel.blockClient(client)
+                    },
+                ) {
+                    Text(stringResource(R.string.action_block))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { clientToBlock = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
         )
     }
 }
@@ -167,6 +197,8 @@ private fun ProtectionContent(
     /** Ouvre le choix de la durée d'une désactivation temporaire. */
     onTemporaryDisable: () -> Unit,
     onCustomDuration: () -> Unit,
+    /** Demande le blocage d'un client du classement (glissement de sa ligne). */
+    onBlockClient: (String) -> Unit,
     /** Ajout à Obtainium pour les mises à jour ; `null` masque l'entrée du menu. */
     onObtainium: (() -> Unit)?,
     onLogout: () -> Unit,
@@ -253,13 +285,14 @@ private fun ProtectionContent(
                             ) {
                                 Text(stringResource(R.string.action_disable_temporarily))
                             }
+                        } else {
+                            DisableOptions(status, state.isUpdating, onDisable, onCustomDuration, contentModifier)
                         }
-                        DisableOptions(status, state.isUpdating, onDisable, onCustomDuration, contentModifier)
                         stats?.let {
                             StatsCard(it, contentModifier)
                             TopCard(stringResource(R.string.top_queried_domains), it.topQueriedDomains, contentModifier)
                             TopCard(stringResource(R.string.top_blocked_domains), it.topBlockedDomains, contentModifier)
-                            TopCard(stringResource(R.string.top_clients), it.topClients, contentModifier)
+                            TopCard(stringResource(R.string.top_clients), it.topClients, contentModifier, onBlock = onBlockClient)
                         }
                         Text(
                             text = stringResource(R.string.protection_restart_note),
@@ -390,7 +423,7 @@ private fun DisableOptions(
 ) {
     Card(modifier = modifier) {
         Text(
-            text = stringResource(if (status.enabled) R.string.disable_options_title else R.string.disable_options_title_disabled),
+            text = stringResource(R.string.disable_options_title_disabled),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
         )
@@ -480,56 +513,86 @@ private fun StatsCard(stats: DnsStats, modifier: Modifier = Modifier) {
 }
 
 // Classement des dernières 24 heures (10 entrées au plus), comme sur le tableau de bord web.
+// Avec [onBlock], chaque ligne glissée vers la gauche ou la droite demande le blocage de l'entrée.
 @Composable
-private fun TopCard(title: String, items: List<DnsStats.RankedItem>, modifier: Modifier = Modifier) {
-    val locale = LocalConfiguration.current.locales[0]
+private fun TopCard(
+    title: String,
+    items: List<DnsStats.RankedItem>,
+    modifier: Modifier = Modifier,
+    onBlock: ((String) -> Unit)? = null,
+) {
     Card(modifier = modifier) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
             if (items.isEmpty()) {
                 Text(
                     text = stringResource(R.string.top_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
             items.forEachIndexed { index, item ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "${index + 1}.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.widthIn(min = 28.dp),
-                    )
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = item.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        item.detail?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                if (onBlock == null) {
+                    RankedRow(index, item)
+                } else {
+                    // key : l'état du glissement suit l'entrée, pas sa position dans le classement.
+                    key(item.name) {
+                        SwipeAction(
+                            icon = R.drawable.ic_block,
+                            label = stringResource(R.string.action_block),
+                            background = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            rowColor = CardDefaults.cardColors().containerColor,
+                            // La ligne revient en place : le blocage attend la confirmation.
+                            onSwipe = { onBlock(item.name) },
+                        ) { RankedRow(index, item) }
                     }
-                    Spacer(Modifier.size(12.dp))
-                    Text(
-                        text = StatsFormat.count(item.count, locale),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RankedRow(index: Int, item: DnsStats.RankedItem) {
+    val locale = LocalConfiguration.current.locales[0]
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "${index + 1}.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.widthIn(min = 28.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            item.detail?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.size(12.dp))
+        Text(
+            text = StatsFormat.count(item.count, locale),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -592,6 +655,7 @@ private fun ProtectionEnabledPreview() {
             onDisable = {},
             onTemporaryDisable = {},
             onCustomDuration = {},
+            onBlockClient = {},
             onObtainium = {},
             onLogout = {},
         )
@@ -619,6 +683,7 @@ private fun ProtectionDisabledPreview() {
             onDisable = {},
             onTemporaryDisable = {},
             onCustomDuration = {},
+            onBlockClient = {},
             onObtainium = {},
             onLogout = {},
         )
@@ -633,7 +698,7 @@ private val PreviewStats = DnsStats(
     topBlockedDomain = DnsStats.RankedItem("ads.example", 87),
     topQueriedDomains = listOf(DnsStats.RankedItem("example.com", 2_048), DnsStats.RankedItem("onyxfilter.maison", 512)),
     topBlockedDomains = listOf(DnsStats.RankedItem("ads.example", 87), DnsStats.RankedItem("tracker.example", 12)),
-    topClients = listOf(DnsStats.RankedItem("192.168.1.20", 4_096), DnsStats.RankedItem("203.0.113.7", 64, "FR · Orange")),
+    topClients = listOf(DnsStats.RankedItem("192.168.1.20", 4_096), DnsStats.RankedItem("203.0.113.7", 64, "🇫🇷 FR · Orange")),
     hourlyQueries = List(24) { (it * 37L) % 500 },
     lastHourStart = null,
 )
