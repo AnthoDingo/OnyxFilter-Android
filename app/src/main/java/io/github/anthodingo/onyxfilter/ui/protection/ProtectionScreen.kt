@@ -80,6 +80,7 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     var showCustomDuration by rememberSaveable { mutableStateOf(false) }
+    var showTemporaryDisable by rememberSaveable { mutableStateOf(false) }
 
     LifecycleStartEffect(viewModel) {
         viewModel.startPolling()
@@ -103,10 +104,25 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
         onRefresh = viewModel::refresh,
         onEnable = viewModel::enable,
         onDisable = viewModel::disable,
+        onTemporaryDisable = { showTemporaryDisable = true },
         onCustomDuration = { showCustomDuration = true },
         onObtainium = if (offerObtainium) context::openObtainium else null,
         onLogout = viewModel::logout,
     )
+
+    if (showTemporaryDisable) {
+        TemporaryDisableDialog(
+            onConfirm = { duration ->
+                showTemporaryDisable = false
+                viewModel.disable(duration)
+            },
+            onCustomDuration = {
+                showTemporaryDisable = false
+                showCustomDuration = true
+            },
+            onDismiss = { showTemporaryDisable = false },
+        )
+    }
 
     if (showCustomDuration) {
         CustomDurationDialog(
@@ -144,6 +160,8 @@ private fun ProtectionContent(
     onRefresh: () -> Unit,
     onEnable: () -> Unit,
     onDisable: (DisableDuration) -> Unit,
+    /** Ouvre le choix de la durée d'une désactivation temporaire. */
+    onTemporaryDisable: () -> Unit,
     onCustomDuration: () -> Unit,
     /** Ajout à Obtainium pour les mises à jour ; `null` masque l'entrée du menu. */
     onObtainium: (() -> Unit)?,
@@ -222,6 +240,15 @@ private fun ProtectionContent(
                         state.error?.let { StaleStatusBanner(it, contentModifier) }
                         StatusCard(status, now, contentModifier)
                         PrimaryAction(status, state.isUpdating, onEnable, onDisable, contentModifier)
+                        if (status.enabled) {
+                            OutlinedButton(
+                                onClick = onTemporaryDisable,
+                                enabled = !state.isUpdating,
+                                modifier = contentModifier.height(52.dp),
+                            ) {
+                                Text(stringResource(R.string.action_disable_temporarily))
+                            }
+                        }
                         DisableOptions(status, state.isUpdating, onDisable, onCustomDuration, contentModifier)
                         stats?.let { StatsCard(it, contentModifier) }
                         Text(
@@ -385,7 +412,7 @@ private fun DisableOptions(
 }
 
 @Composable
-private fun durationLabel(duration: DisableDuration): String = when (duration) {
+internal fun durationLabel(duration: DisableDuration): String = when (duration) {
     DisableDuration.Indefinitely -> stringResource(R.string.disable_indefinitely)
     DisableDuration.UntilTomorrow -> stringResource(R.string.disable_until_tomorrow)
     is DisableDuration.Fixed -> {
@@ -498,6 +525,7 @@ private fun ProtectionEnabledPreview() {
             onRefresh = {},
             onEnable = {},
             onDisable = {},
+            onTemporaryDisable = {},
             onCustomDuration = {},
             onObtainium = {},
             onLogout = {},
@@ -523,6 +551,7 @@ private fun ProtectionDisabledPreview() {
             onRefresh = {},
             onEnable = {},
             onDisable = {},
+            onTemporaryDisable = {},
             onCustomDuration = {},
             onObtainium = {},
             onLogout = {},
