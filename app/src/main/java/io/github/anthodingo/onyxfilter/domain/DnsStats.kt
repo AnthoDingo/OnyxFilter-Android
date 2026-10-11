@@ -1,5 +1,6 @@
 package io.github.anthodingo.onyxfilter.domain
 
+import io.github.anthodingo.onyxfilter.data.ClientLocationDto
 import io.github.anthodingo.onyxfilter.data.StatsDto
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -14,6 +15,12 @@ data class DnsStats(
     val averageProcessingTimeMs: Int,
     /** Domaine le plus bloqué et son nombre de requêtes, s'il y en a un. */
     val topBlockedDomain: RankedItem?,
+    /** Domaines les plus demandés, du premier au dixième au plus. */
+    val topQueriedDomains: List<RankedItem> = emptyList(),
+    /** Domaines les plus bloqués, du premier au dixième au plus. */
+    val topBlockedDomains: List<RankedItem> = emptyList(),
+    /** Clients les plus actifs, du premier au dixième au plus. */
+    val topClients: List<RankedItem> = emptyList(),
     /** Requêtes par heure, de la plus ancienne à la plus récente (24 valeurs en général). */
     val hourlyQueries: List<Long>,
     /** Requêtes bloquées par heure, alignées sur [hourlyQueries] (vide si inconnues). */
@@ -21,7 +28,8 @@ data class DnsStats(
     /** Début de la dernière heure de [hourlyQueries]. */
     val lastHourStart: Instant?,
 ) {
-    data class RankedItem(val name: String, val count: Long)
+    /** @property detail précision à afficher sous le nom (pays et fournisseur d'un client). */
+    data class RankedItem(val name: String, val count: Long, val detail: String? = null)
 
     companion object {
         fun fromDto(dto: StatsDto): DnsStats = DnsStats(
@@ -30,11 +38,32 @@ data class DnsStats(
             blockedRatio = dto.blockedRatio.coerceIn(0.0, 1.0),
             averageProcessingTimeMs = dto.averageProcessingTimeMs.coerceAtLeast(0),
             topBlockedDomain = dto.topBlockedDomains.firstOrNull()?.let { RankedItem(it.name, it.count) },
+            topQueriedDomains = dto.topQueriedDomains.ranking { RankedItem(it.name, it.count.coerceAtLeast(0)) },
+            topBlockedDomains = dto.topBlockedDomains.ranking { RankedItem(it.name, it.count.coerceAtLeast(0)) },
+            topClients = dto.topClients.ranking { RankedItem(it.name, it.count.coerceAtLeast(0), it.location?.describe()) },
             hourlyQueries = dto.hourly.map { it.totalQueries.coerceAtLeast(0) },
             hourlyBlocked = dto.hourly.map { it.blockedQueries.coerceIn(0, it.totalQueries.coerceAtLeast(0)) },
             lastHourStart = dto.hourly.lastOrNull()?.hourStart?.let(::parseApiInstant),
         )
+
+        /** Taille des classements, celle de l'interface web d'OnyxFilter. */
+        const val TOP_SIZE = 10
+
+        private inline fun <T> List<T>.ranking(transform: (T) -> RankedItem): List<RankedItem> = take(TOP_SIZE).map(transform)
     }
+}
+
+/** "🇫🇷 FR · Orange", "🇫🇷 FR" ou "Orange" ; `null` si rien n'est connu. */
+internal fun ClientLocationDto.describe(): String? =
+    listOfNotNull(country?.takeIf { it.isNotBlank() }?.let { flagOf(it)?.plus(" $it") ?: it }, provider.takeIf { it.isNotBlank() })
+        .joinToString(" · ")
+        .ifEmpty { null }
+
+/** Drapeau emoji d'un code pays ISO à deux lettres ("FR" → 🇫🇷), `null` pour tout autre code. */
+internal fun flagOf(countryCode: String): String? {
+    val code = countryCode.uppercase()
+    if (code.length != 2 || code.any { it !in 'A'..'Z' }) return null
+    return code.map { String(Character.toChars(0x1F1E6 + (it - 'A'))) }.joinToString("")
 }
 
 /**

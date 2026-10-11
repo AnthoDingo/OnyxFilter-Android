@@ -17,10 +17,8 @@ import io.github.anthodingo.onyxfilter.ui.login.LoginScreen
 import io.github.anthodingo.onyxfilter.ui.login.LoginViewModel
 import io.github.anthodingo.onyxfilter.ui.pairing.PairingDialog
 import io.github.anthodingo.onyxfilter.ui.pairing.PairingViewModel
-import io.github.anthodingo.onyxfilter.ui.protection.ProtectionScreen
-import io.github.anthodingo.onyxfilter.ui.protection.ProtectionViewModel
 
-/** Écran de connexion ou de gestion de la protection, selon l'état de la session. */
+/** Écran de connexion ou pages de l'application, selon l'état de la session. */
 @Composable
 fun OnyxFilterRoot(repository: OnyxFilterRepository, pairingViewModel: PairingViewModel) {
     val authState by repository.authState.collectAsStateWithLifecycle()
@@ -37,14 +35,7 @@ fun OnyxFilterRoot(repository: OnyxFilterRepository, pairingViewModel: PairingVi
                 onQrScanned = pairingViewModel::onLink,
             )
 
-            is AuthState.LoggedIn -> ProtectionScreen(
-                session = state.session,
-                // Un ViewModel par instance : rien n'est repris d'un serveur à l'autre.
-                viewModel = viewModel(
-                    key = "protection:${state.session.serverUrl}",
-                    factory = ProtectionViewModel.Factory,
-                ),
-            )
+            is AuthState.LoggedIn -> MainScreen(state.session)
         }
 
         PairingDialog(pairingViewModel)

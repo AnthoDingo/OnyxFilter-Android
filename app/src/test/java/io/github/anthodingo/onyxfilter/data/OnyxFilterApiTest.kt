@@ -90,6 +90,48 @@ class OnyxFilterApiTest {
     }
 
     @Test
+    fun `blockClient posts the client and reads whether it changed`() = runTest {
+        server.enqueue(json(200, """{"client":"203.0.113.7","changed":true,"added":[],"removed":[],"mode":"Blocklist"}"""))
+
+        val result = api.blockClient(baseUrl, TOKEN, "203.0.113.7")
+
+        assertTrue(result.changed)
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/api/v1/access/block", request.path)
+        assertEquals("203.0.113.7", jsonBody(request.body.readUtf8())["client"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `allowClient posts to its endpoint and returns the remaining blocked clients`() = runTest {
+        server.enqueue(json(200, """{"mode":"Blocklist","blockedClients":["198.51.100.0/24"],"allowedClients":[]}"""))
+        server.enqueue(json(200, """{"client":"203.0.113.7","changed":true,"mode":"Blocklist","blockedClients":[]}"""))
+
+        assertEquals(listOf("198.51.100.0/24"), api.getAccess(baseUrl, TOKEN).blockedClients)
+        val result = api.allowClient(baseUrl, TOKEN, "203.0.113.7")
+
+        assertTrue(result.changed)
+        assertEquals(emptyList<String>(), result.blockedClients)
+        assertEquals("/api/v1/access", server.takeRequest().path)
+        val allow = server.takeRequest()
+        assertEquals("POST", allow.method)
+        assertEquals("/api/v1/access/allow", allow.path)
+        assertEquals("203.0.113.7", jsonBody(allow.body.readUtf8())["client"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `getCallerAccess reads the address seen by the server`() = runTest {
+        server.enqueue(json(200, """{"ip":"203.0.113.7","allowed":false,"mode":"Allowlist","rule":null,"list":null}"""))
+
+        val access = api.getCallerAccess(baseUrl, TOKEN)
+
+        assertEquals("203.0.113.7", access.ip)
+        assertFalse(access.allowed)
+        assertNull(access.rule)
+        assertEquals("/api/v1/access/me", server.takeRequest().path)
+    }
+
+    @Test
     fun `getStats parses totals, top blocked domains and hourly series`() = runTest {
         server.enqueue(json(200, STATS))
 
@@ -99,8 +141,41 @@ class OnyxFilterApiTest {
         assertEquals(56L, stats.blockedQueries)
         assertEquals(0.0454, stats.blockedRatio, 1e-9)
         assertEquals("ads.example", stats.topBlockedDomains.first().name)
+        assertEquals("example.com", stats.topQueriedDomains.first().name)
+        assertEquals("Orange", stats.topClients[1].location?.provider)
         assertEquals(listOf(10L, 20L), stats.hourly.map { it.totalQueries })
         assertEquals("/api/v1/stats", server.takeRequest().path)
+    }
+
+    @Test
+    fun `getQueryLog sends the paging and the search, and parses the page`() = runTest {
+        server.enqueue(json(200, QUERY_LOG))
+
+        val page = api.getQueryLog(baseUrl, TOKEN, offset = 50, limit = 50, search = " ads ")
+
+        assertTrue(page.hasMore)
+        assertEquals(2, page.items.size)
+        assertEquals("ads.example", page.items[0].domain)
+        assertTrue(page.items[0].blocked)
+        assertEquals("Filtered", page.items[0].reason)
+        assertEquals("FR", page.items[1].clientLocation?.country)
+
+        val request = server.takeRequest()
+        assertEquals("/api/v1/querylog", request.requestUrl!!.encodedPath)
+        assertEquals("50", request.requestUrl!!.queryParameter("offset"))
+        assertEquals("50", request.requestUrl!!.queryParameter("limit"))
+        assertEquals("ads", request.requestUrl!!.queryParameter("search"))
+        assertEquals("Bearer $TOKEN", request.getHeader("Authorization"))
+    }
+
+    @Test
+    fun `getQueryLog without search sends no search parameter`() = runTest {
+        server.enqueue(json(200, """{"items":[],"offset":0,"limit":50,"hasMore":false}"""))
+
+        val page = api.getQueryLog(baseUrl, TOKEN, offset = 0, limit = 50, search = "  ")
+
+        assertTrue(page.items.isEmpty())
+        assertNull(server.takeRequest().requestUrl!!.queryParameter("search"))
     }
 
     @Test
@@ -192,8 +267,18 @@ class OnyxFilterApiTest {
         const val STATS = """{"generatedAt":"2026-09-30T13:43:50.7365507+00:00","windowStart":"2026-09-29T14:00:00+00:00",
             "totalQueries":1234,"blockedQueries":56,"allowedQueries":1178,"blockedRatio":0.0454,"averageProcessingTimeMs":3,
             "topQueriedDomains":[{"name":"example.com","count":300}],"topBlockedDomains":[{"name":"ads.example","count":40}],
-            "topClients":[],"upstreams":[{"server":"1.1.1.1","queries":1178,"averageResponseTimeMs":12}],
+            "topClients":[{"name":"192.168.1.20","count":900,"location":null},
+                          {"name":"203.0.113.7","count":12,"location":{"country":"FR","asn":3215,"provider":"Orange"}}],
+            "upstreams":[{"server":"1.1.1.1","queries":1178,"averageResponseTimeMs":12}],
             "hourly":[{"hourStart":"2026-09-30T12:00:00+00:00","totalQueries":10,"blockedQueries":1},
                       {"hourStart":"2026-09-30T13:00:00+00:00","totalQueries":20,"blockedQueries":2}]}"""
+
+        const val QUERY_LOG = """{"items":[
+            {"time":"2026-09-30T13:43:50.1234567+00:00","domain":"ads.example","type":"A","client":"192.168.1.20",
+             "clientLocation":null,"reason":"Filtered","blocked":true,"reasonDetail":"EasyList","upstream":null,"processingTimeMs":1},
+            {"time":"2026-09-30T13:43:49+00:00","domain":"example.com","type":"AAAA","client":"203.0.113.7",
+             "clientLocation":{"country":"FR","asn":3215,"provider":"Orange"},"reason":"Resolved","blocked":false,
+             "reasonDetail":null,"upstream":"1.1.1.1","processingTimeMs":12}],
+            "offset":50,"limit":50,"hasMore":true}"""
     }
 }

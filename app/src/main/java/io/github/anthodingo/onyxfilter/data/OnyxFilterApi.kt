@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -41,12 +42,50 @@ class OnyxFilterApi(
         return call(authorized(baseUrl, token, "api/v1/protection/disable").post(body), ProtectionStateDto.serializer())
     }
 
+    suspend fun getAccess(baseUrl: String, token: String): AccessListsDto =
+        call(authorized(baseUrl, token, "api/v1/access").get(), AccessListsDto.serializer())
+
+    /** Adresse de l'appareil vue par le serveur (son adresse publique hors du réseau local). */
+    suspend fun getCallerAccess(baseUrl: String, token: String): CallerAccessDto =
+        call(authorized(baseUrl, token, "api/v1/access/me").get(), CallerAccessDto.serializer())
+
+    /** Refuse l'accès au DNS à [client] (adresse IP ou sous-réseau), en vigueur dès la réponse. */
+    suspend fun blockClient(baseUrl: String, token: String, client: String): ClientAccessChangeDto =
+        changeClientAccess(baseUrl, token, "api/v1/access/block", client)
+
+    /** Rend l'accès au DNS à [client] (adresse IP ou sous-réseau), en vigueur dès la réponse. */
+    suspend fun allowClient(baseUrl: String, token: String, client: String): ClientAccessChangeDto =
+        changeClientAccess(baseUrl, token, "api/v1/access/allow", client)
+
+    private suspend fun changeClientAccess(baseUrl: String, token: String, path: String, client: String): ClientAccessChangeDto {
+        val body = ApiJson.encodeToString(ClientAccessRequest.serializer(), ClientAccessRequest(client))
+            .toRequestBody(JsonMediaType)
+        return call(authorized(baseUrl, token, path).post(body), ClientAccessChangeDto.serializer())
+    }
+
     suspend fun getStats(baseUrl: String, token: String): StatsDto =
         call(authorized(baseUrl, token, "api/v1/stats").get(), StatsDto.serializer())
 
+    /**
+     * Page du journal des requêtes, des plus récentes aux plus anciennes.
+     *
+     * @param search filtre sur le domaine ou le client (recherche partielle), `null` pour tout lire.
+     */
+    suspend fun getQueryLog(baseUrl: String, token: String, offset: Int, limit: Int, search: String?): QueryLogDto {
+        val url = ServerUrl.endpoint(baseUrl, "api/v1/querylog").newBuilder()
+            .addQueryParameter("offset", offset.toString())
+            .addQueryParameter("limit", limit.toString())
+            .apply { if (!search.isNullOrBlank()) addQueryParameter("search", search.trim()) }
+            .build()
+        return call(authorized(url, token).get(), QueryLogDto.serializer())
+    }
+
     private fun authorized(baseUrl: String, token: String, path: String): Request.Builder =
+        authorized(ServerUrl.endpoint(baseUrl, path), token)
+
+    private fun authorized(url: HttpUrl, token: String): Request.Builder =
         Request.Builder()
-            .url(ServerUrl.endpoint(baseUrl, path))
+            .url(url)
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/json")
 

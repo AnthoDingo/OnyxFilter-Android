@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.anthodingo.onyxfilter.OnyxFilterApplication
+import io.github.anthodingo.onyxfilter.R
 import io.github.anthodingo.onyxfilter.data.OnyxFilterException
 import io.github.anthodingo.onyxfilter.data.OnyxFilterRepository
 import io.github.anthodingo.onyxfilter.domain.DisableDuration
@@ -47,9 +48,9 @@ class ProtectionViewModel(
     private val _uiState = MutableStateFlow(ProtectionUiState())
     val uiState: StateFlow<ProtectionUiState> = _uiState.asStateFlow()
 
-    // Erreurs des actions de l'utilisateur, affichées une seule fois (Snackbar).
-    private val _actionErrors = Channel<UiText>(Channel.BUFFERED)
-    val actionErrors: Flow<UiText> = _actionErrors.receiveAsFlow()
+    // Résultats et erreurs des actions de l'utilisateur, affichés une seule fois (Snackbar).
+    private val _messages = Channel<UiText>(Channel.BUFFERED)
+    val messages: Flow<UiText> = _messages.receiveAsFlow()
 
     /** Statistiques des dernières 24 heures (partagées avec les widgets par le dépôt). */
     val stats: StateFlow<DnsStats?> = repository.stats
@@ -95,6 +96,20 @@ class ProtectionViewModel(
 
     fun disable(duration: DisableDuration) = runAction { repository.disableProtection(duration) }
 
+    /** Refuse l'accès au DNS à [client] (adresse IP), sans toucher à l'état de la protection. */
+    fun blockClient(client: String) {
+        viewModelScope.launch {
+            val message = try {
+                val changed = repository.blockClient(client)
+                UiText.Resource(if (changed) R.string.client_blocked else R.string.client_already_blocked, listOf(client))
+            } catch (e: OnyxFilterException) {
+                if (e is OnyxFilterException.SessionEnded) return@launch
+                e.toUiText()
+            }
+            _messages.send(message)
+        }
+    }
+
     fun logout() {
         stopPolling()
         viewModelScope.launch { repository.logout() }
@@ -138,7 +153,7 @@ class ProtectionViewModel(
             } catch (e: OnyxFilterException) {
                 _uiState.update { it.copy(isUpdating = false) }
                 if (e !is OnyxFilterException.SessionEnded) {
-                    _actionErrors.send(e.toUiText())
+                    _messages.send(e.toUiText())
                 }
             }
         }

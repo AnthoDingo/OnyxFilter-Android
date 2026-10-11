@@ -1,6 +1,8 @@
 package io.github.anthodingo.onyxfilter.data
 
 import io.github.anthodingo.onyxfilter.domain.DisableDuration
+import io.github.anthodingo.onyxfilter.domain.DnsStats
+import io.github.anthodingo.onyxfilter.domain.QueryLogReason
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -182,6 +184,12 @@ class OnyxFilterRepositoryTest {
 
         assertEquals(1234L, stats.totalQueries)
         assertEquals("ads.example", stats.topBlockedDomain?.name)
+        assertEquals(listOf(DnsStats.RankedItem("example.com", 300)), stats.topQueriedDomains)
+        assertEquals(listOf(DnsStats.RankedItem("ads.example", 40)), stats.topBlockedDomains)
+        assertEquals(
+            listOf(DnsStats.RankedItem("192.168.1.20", 900), DnsStats.RankedItem("203.0.113.7", 12, "🇫🇷 FR · Orange")),
+            stats.topClients,
+        )
         assertEquals(listOf(10L, 20L), stats.hourlyQueries)
         assertEquals(listOf(1L, 2L), stats.hourlyBlocked)
         assertEquals(Instant.parse("2026-09-30T13:00:00Z"), stats.lastHourStart)
@@ -190,6 +198,22 @@ class OnyxFilterRepositoryTest {
         repository.logout()
         assertNull(repository.stats.value)
         assertNull(repository.protectionStatus.value)
+    }
+
+    @Test
+    fun `query log pages are read with the session token`() = runTest {
+        store.save(session())
+        val repository = repository()
+        repository.restoreSession()
+        server.enqueue(json(OnyxFilterApiTest.QUERY_LOG))
+
+        val page = repository.getQueryLog(offset = 50, limit = 50, search = "ads")
+
+        assertTrue(page.hasMore)
+        assertEquals(listOf("ads.example", "example.com"), page.entries.map { it.domain })
+        assertEquals(QueryLogReason.Filtered, page.entries[0].reason)
+        assertEquals(Instant.parse("2026-09-30T13:43:49Z"), page.entries[1].time)
+        assertEquals("Bearer onyx_stored", server.takeRequest().getHeader("Authorization"))
     }
 
     private fun json(body: String) = MockResponse()
