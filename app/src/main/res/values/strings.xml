@@ -80,6 +80,39 @@
     <string name="custom_duration_limits">Entre 1 minute et 30 jours.</string>
     <string name="custom_duration_confirm">Désactiver</string>
 
+    <!-- Classements (24 heures) -->
+    <string name="top_queried_domains">Domaines les plus demandés</string>
+    <string name="top_blocked_domains">Domaines les plus bloqués</string>
+    <string name="top_clients">Clients les plus actifs</string>
+    <string name="top_empty">Aucune donnée sur 24 h.</string>
+
+    <!-- Menu de navigation -->
+    <string name="nav_open">Ouvrir le menu</string>
+    <string name="nav_protection">Protection</string>
+    <string name="nav_query_log">Journal des requêtes</string>
+
+    <!-- Journal des requêtes -->
+    <string name="query_log_title">Journal des requêtes</string>
+    <string name="query_log_search">Domaine ou client</string>
+    <string name="query_log_clear_search">Effacer la recherche</string>
+    <string name="query_log_empty">Aucune requête enregistrée.</string>
+    <string name="query_log_no_match">Aucune requête ne correspond à « %1$s ».</string>
+    <string name="query_log_load_failed">Impossible de lire le journal des requêtes</string>
+    <string name="query_log_load_more_failed">Impossible de charger la suite : %1$s</string>
+    <string name="query_log_blocked">Bloquée</string>
+    <string name="query_log_allowed">Autorisée</string>
+    <string name="query_log_upstream">via %1$s</string>
+    <string name="query_log_processing_time">%1$d ms</string>
+    <string name="query_log_reason_resolved">Résolue</string>
+    <string name="query_log_reason_cached">Cache</string>
+    <string name="query_log_reason_rewritten">Réécrite</string>
+    <string name="query_log_reason_safe_search">Recherche sécurisée</string>
+    <string name="query_log_reason_custom_rule">Règle personnalisée</string>
+    <string name="query_log_reason_filtered">Liste de filtres</string>
+    <string name="query_log_reason_blocked_service">Service bloqué</string>
+    <string name="query_log_reason_security_threat">Menace de sécurité</string>
+    <string name="query_log_reason_parental_control">Contrôle parental</string>
+
     <!-- Widgets -->
     <string name="widget_toggle_label">Bascule OnyxFilter</string>
     <string name="widget_toggle_description">Active ou désactive la protection d\'un simple toucher.</string>

@@ -12,6 +12,13 @@ import java.util.Date
 /** Heure seule, au format 12 h/24 h choisi sur le téléphone. */
 fun formatTime(context: Context, instant: Instant): String = DateFormat.getTimeFormat(context).format(Date.from(instant))
 
+/** Heure avec les secondes ("14:32:07" ou "2:32:07 PM"), au format 12 h/24 h choisi sur le téléphone. */
+fun formatTimeWithSeconds(context: Context, instant: Instant): String {
+    val locale = context.resources.configuration.locales[0]
+    val skeleton = if (DateFormat.is24HourFormat(context)) "Hms" else "hmsa"
+    return DateFormat.format(DateFormat.getBestDateTimePattern(locale, skeleton), Date.from(instant)).toString()
+}
+
 /** Jour abrégé ("mer. 7 oct."), dans la langue du téléphone. */
 fun formatShortDay(context: Context, instant: Instant): String {
     val locale = context.resources.configuration.locales[0]

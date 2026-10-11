@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -44,9 +45,26 @@ class OnyxFilterApi(
     suspend fun getStats(baseUrl: String, token: String): StatsDto =
         call(authorized(baseUrl, token, "api/v1/stats").get(), StatsDto.serializer())
 
+    /**
+     * Page du journal des requêtes, des plus récentes aux plus anciennes.
+     *
+     * @param search filtre sur le domaine ou le client (recherche partielle), `null` pour tout lire.
+     */
+    suspend fun getQueryLog(baseUrl: String, token: String, offset: Int, limit: Int, search: String?): QueryLogDto {
+        val url = ServerUrl.endpoint(baseUrl, "api/v1/querylog").newBuilder()
+            .addQueryParameter("offset", offset.toString())
+            .addQueryParameter("limit", limit.toString())
+            .apply { if (!search.isNullOrBlank()) addQueryParameter("search", search.trim()) }
+            .build()
+        return call(authorized(url, token).get(), QueryLogDto.serializer())
+    }
+
     private fun authorized(baseUrl: String, token: String, path: String): Request.Builder =
+        authorized(ServerUrl.endpoint(baseUrl, path), token)
+
+    private fun authorized(url: HttpUrl, token: String): Request.Builder =
         Request.Builder()
-            .url(ServerUrl.endpoint(baseUrl, path))
+            .url(url)
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/json")
 

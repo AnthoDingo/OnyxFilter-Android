@@ -52,6 +52,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -64,6 +65,7 @@ import io.github.anthodingo.onyxfilter.domain.DnsStats
 import io.github.anthodingo.onyxfilter.domain.DurationParts
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
 import io.github.anthodingo.onyxfilter.domain.StatsFormat
+import io.github.anthodingo.onyxfilter.ui.MenuButton
 import io.github.anthodingo.onyxfilter.ui.UiText
 import io.github.anthodingo.onyxfilter.ui.asString
 import io.github.anthodingo.onyxfilter.ui.formatReEnableTime
@@ -75,7 +77,7 @@ import kotlinx.coroutines.delay
 import java.time.Instant
 
 @Composable
-fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
+fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel, onOpenMenu: () -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -101,6 +103,7 @@ fun ProtectionScreen(session: Session, viewModel: ProtectionViewModel) {
         now = rememberNow(ticking = state.status?.isDisabledTemporarily == true),
         serverLabel = ServerUrl.displayName(session.serverUrl),
         snackbarHostState = snackbarHostState,
+        onOpenMenu = onOpenMenu,
         onRefresh = viewModel::refresh,
         onEnable = viewModel::enable,
         onDisable = viewModel::disable,
@@ -157,6 +160,7 @@ private fun ProtectionContent(
     now: Instant,
     serverLabel: String,
     snackbarHostState: SnackbarHostState,
+    onOpenMenu: () -> Unit,
     onRefresh: () -> Unit,
     onEnable: () -> Unit,
     onDisable: (DisableDuration) -> Unit,
@@ -183,6 +187,7 @@ private fun ProtectionContent(
                         )
                     }
                 },
+                navigationIcon = { MenuButton(onOpenMenu) },
                 actions = {
                     IconButton(onClick = onRefresh, enabled = !state.isRefreshing) {
                         Icon(painterResource(R.drawable.ic_refresh), contentDescription = stringResource(R.string.action_refresh))
@@ -250,7 +255,12 @@ private fun ProtectionContent(
                             }
                         }
                         DisableOptions(status, state.isUpdating, onDisable, onCustomDuration, contentModifier)
-                        stats?.let { StatsCard(it, contentModifier) }
+                        stats?.let {
+                            StatsCard(it, contentModifier)
+                            TopCard(stringResource(R.string.top_queried_domains), it.topQueriedDomains, contentModifier)
+                            TopCard(stringResource(R.string.top_blocked_domains), it.topBlockedDomains, contentModifier)
+                            TopCard(stringResource(R.string.top_clients), it.topClients, contentModifier)
+                        }
                         Text(
                             text = stringResource(R.string.protection_restart_note),
                             modifier = contentModifier,
@@ -469,6 +479,60 @@ private fun StatsCard(stats: DnsStats, modifier: Modifier = Modifier) {
     }
 }
 
+// Classement des dernières 24 heures (10 entrées au plus), comme sur le tableau de bord web.
+@Composable
+private fun TopCard(title: String, items: List<DnsStats.RankedItem>, modifier: Modifier = Modifier) {
+    val locale = LocalConfiguration.current.locales[0]
+    Card(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            if (items.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.top_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            items.forEachIndexed { index, item ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${index + 1}.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.widthIn(min = 28.dp),
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = item.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        item.detail?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.size(12.dp))
+                    Text(
+                        text = StatsFormat.count(item.count, locale),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun StatValue(value: String, label: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
@@ -522,6 +586,7 @@ private fun ProtectionEnabledPreview() {
             now = Instant.now(),
             serverLabel = "onyxfilter.maison:7037",
             snackbarHostState = remember { SnackbarHostState() },
+            onOpenMenu = {},
             onRefresh = {},
             onEnable = {},
             onDisable = {},
@@ -548,6 +613,7 @@ private fun ProtectionDisabledPreview() {
             now = now,
             serverLabel = "onyxfilter.maison:7037",
             snackbarHostState = remember { SnackbarHostState() },
+            onOpenMenu = {},
             onRefresh = {},
             onEnable = {},
             onDisable = {},
@@ -565,6 +631,9 @@ private val PreviewStats = DnsStats(
     blockedRatio = 0.026,
     averageProcessingTimeMs = 4,
     topBlockedDomain = DnsStats.RankedItem("ads.example", 87),
+    topQueriedDomains = listOf(DnsStats.RankedItem("example.com", 2_048), DnsStats.RankedItem("onyxfilter.maison", 512)),
+    topBlockedDomains = listOf(DnsStats.RankedItem("ads.example", 87), DnsStats.RankedItem("tracker.example", 12)),
+    topClients = listOf(DnsStats.RankedItem("192.168.1.20", 4_096), DnsStats.RankedItem("203.0.113.7", 64, "FR · Orange")),
     hourlyQueries = List(24) { (it * 37L) % 500 },
     lastHourStart = null,
 )

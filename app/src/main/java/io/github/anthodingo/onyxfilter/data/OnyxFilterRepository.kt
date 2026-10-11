@@ -3,6 +3,7 @@ package io.github.anthodingo.onyxfilter.data
 import io.github.anthodingo.onyxfilter.domain.DisableDuration
 import io.github.anthodingo.onyxfilter.domain.DnsStats
 import io.github.anthodingo.onyxfilter.domain.ProtectionStatus
+import io.github.anthodingo.onyxfilter.domain.QueryLogPage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -113,6 +114,16 @@ class OnyxFilterRepository(
         val stats = DnsStats.fromDto(dto)
         publishIfCurrent(session) { _stats.value = stats }
         return stats
+    }
+
+    /**
+     * Page du journal des requêtes ; non conservée, contrairement à l'état et aux statistiques.
+     *
+     * @throws OnyxFilterException
+     */
+    suspend fun getQueryLog(offset: Int, limit: Int, search: String?): QueryLogPage {
+        val (_, dto) = authenticated { session -> api.getQueryLog(session.serverUrl, session.apiToken, offset, limit, search) }
+        return QueryLogPage.fromDto(dto)
     }
 
     private suspend fun protectionCall(call: suspend (Session) -> ProtectionStateDto): ProtectionStatus {
